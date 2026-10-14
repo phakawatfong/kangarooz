@@ -1,8 +1,17 @@
 [project]
 name = "f1-project"
-author {"phakawatfong@gmail.com"}
 version = "0.1.0"
-description = "Add your description here"
+description = "F1: real-time FX trading analytics platform. Phase 1 = trade event contract + synthetic producer."
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = []
+authors = [{ email = "phakawatfong@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "confluent-kafka[avro,schemaregistry]>=2.6",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
