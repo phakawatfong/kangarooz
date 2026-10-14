@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "FxTrade",
+  "namespace": "f1.fx",
+  "doc": "One executed FX trade. Raw facts only: no derived metrics, no anomaly labels (ground truth lives in fx.trades.ground_truth).",
+  "fields": [
+    {"name": "trade_id", "type": "string", "doc": "Unique per trade, stable across retries. Dedupe key at the sink; also the Kafka record key."},
+    {"name": "user_id", "type": "string", "doc": "Thin reference to the trading account. Used by account-level rules."},
+    {"name": "currency_pair", "type": "string", "doc": "Base/quote in market convention, e.g. USD/THB. String (not enum) so new pairs never break lagging consumers."},
+    {"name": "side", "type": {"type": "enum", "name": "Side", "symbols": ["BUY", "SELL"]}, "doc": "Whether the customer buys or sells the BASE currency. Closed set, so an enum is safe."},
+    {"name": "rate", "type": {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}, "doc": "Quote currency per 1 unit of base (e.g. THB per 1 USD). Same convention for BUY and SELL."},
+    {"name": "base_amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}, "doc": "Amount in the base currency. Quote amount = base_amount * rate (derived downstream, never stored)."},
+    {"name": "event_timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "When the trade executed (business/event time). Drives event-time windows."}
+  ]
+}

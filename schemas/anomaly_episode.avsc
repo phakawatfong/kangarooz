@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "AnomalyEpisode",
+  "namespace": "f1.fx",
+  "doc": "Ground truth: one anomaly episode deliberately injected by the simulator. Used ONLY to grade the detector; the detector never subscribes to this topic.",
+  "fields": [
+    {"name": "episode_id", "type": "string"},
+    {"name": "anomaly_type", "type": "string", "doc": "price_spike | fat_finger | volume_burst | account_burst. String so new injection types don't break readers."},
+    {"name": "scope", "type": {"type": "enum", "name": "Scope", "symbols": ["TRADE", "USER", "PAIR"]}, "doc": "What the anomaly is attached to: one trade (point anomaly) or a user/pair over a window (collective anomaly)."},
+    {"name": "scope_key", "type": "string", "doc": "trade_id, user_id or currency_pair depending on scope."},
+    {"name": "start_time", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "end_time", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "Equal to start_time for single-trade anomalies."},
+    {"name": "params", "type": {"type": "map", "values": "string"}, "default": {}, "doc": "Injection settings, e.g. deviation_pct, multiplier, trades_per_sec."}
+  ]
+}
