@@ -77,5 +77,8 @@ class FxProducer:
         key = self.key_ser(ep.episode_id, SerializationContext(GROUND_TRUTH_TOPIC, MessageField.KEY))
         self._produce(GROUND_TRUTH_TOPIC, key, value)
 
-    def flush(self, timeout: float = 30.0) -> int:
-        return self.producer.flush(timeout)
+    def close(self, elapsed: float) -> None:
+        remaining = self.producer.flush(30.0)
+        print(f"done: sent={self.sent} delivered={self.delivered} failed={self.failed} "
+              f"unflushed={remaining} avg_value={self.value_bytes / max(self.sent, 1):.1f}B "
+              f"avg_key={self.key_bytes / max(self.sent, 1):.1f}B rate={self.sent / elapsed:.0f}/s")

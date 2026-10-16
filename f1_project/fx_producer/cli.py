@@ -12,14 +12,27 @@ import time
 from collections import Counter
 from dataclasses import fields
 from datetime import datetime, timezone
+from typing import Protocol
 
 from .anomalies import AnomalyInjector
-from .avro_local import REGISTRY_HEADER_BYTES, encode
 from .chaos import apply_chaos
-from .config import TRADE_SCHEMA, SimConfig
+from .config import SimConfig
+from .dry_run import DryRunSink
 from .market import MarketSimulator
+from .model import AnomalyEpisode, Trade
 
 TICK_SECONDS = 0.1
+
+
+class EventSink(Protocol):
+    """Where trades and ground truth go: Kafka (kafka_io.FxProducer) or the console (dry_run.DryRunSink)."""
+
+    sent: int
+    value_bytes: int
+
+    def send_episode(self, ep: AnomalyEpisode) -> None: ...
+    def send_trade(self, trade: Trade) -> None: ...
+    def close(self, elapsed: float) -> None: ...
 
 
 def parse_args(argv: list[str] | None = None) -> tuple[SimConfig, argparse.Namespace]:
@@ -42,14 +55,14 @@ def main(argv: list[str] | None = None) -> None:
     market = MarketSimulator(cfg, rng)
     injector = AnomalyInjector(cfg, market, rng)
 
-    producer = None
-    if not args.dry_run:
+    sink: EventSink
+    if args.dry_run:
+        sink = DryRunSink()
+    else:
         from .kafka_io import FxProducer  # imported lazily so --dry-run works without a broker
 
-        producer = FxProducer()
+        sink = FxProducer()
 
-    sent = 0
-    dry_value_bytes = 0
     episode_counts: Counter[str] = Counter()
     carry = 0.0
     start = time.monotonic()
@@ -73,40 +86,21 @@ def main(argv: list[str] | None = None) -> None:
 
             for ep in episodes:
                 episode_counts[ep.anomaly_type] += 1
-                if producer:
-                    producer.send_episode(ep)
-                else:
-                    print(f"[ground truth] {ep.anomaly_type:<14} {ep.scope}:{ep.scope_key} {ep.params}")
+                sink.send_episode(ep)
             for t in trades:
-                if producer:
-                    producer.send_trade(t)
-                else:
-                    dry_value_bytes += REGISTRY_HEADER_BYTES + len(encode(t.to_avro(), TRADE_SCHEMA))
-                    if sent < 3:
-                        print(f"[sample trade] {t.to_avro()}  quote_amount={t.quote_amount}")
-                sent += 1
+                sink.send_trade(t)
 
             if loop_start >= next_report:
                 elapsed = loop_start - start
-                vb = producer.value_bytes if producer else dry_value_bytes
-                print(f"t={elapsed:5.1f}s sent={sent:>8} ({sent / elapsed:6.0f}/s) "
-                      f"avg_value={vb / max(sent, 1):5.1f}B episodes={dict(episode_counts)}")
+                print(f"t={elapsed:5.1f}s sent={sink.sent:>8} ({sink.sent / elapsed:6.0f}/s) "
+                      f"avg_value={sink.value_bytes / max(sink.sent, 1):5.1f}B episodes={dict(episode_counts)}")
                 next_report += 5.0
             time.sleep(max(0.0, TICK_SECONDS - (time.monotonic() - loop_start)))
     except KeyboardInterrupt:
         print("\nstopping...")
     finally:
-        elapsed = max(time.monotonic() - start, 1e-9)
-        if producer:
-            remaining = producer.flush()
-            print(f"done: sent={producer.sent} delivered={producer.delivered} failed={producer.failed} "
-                  f"unflushed={remaining} avg_value={producer.value_bytes / max(producer.sent, 1):.1f}B "
-                  f"avg_key={producer.key_bytes / max(producer.sent, 1):.1f}B rate={producer.sent / elapsed:.0f}/s")
-        else:
-            print(f"done (dry run): trades={sent} avg_value={dry_value_bytes / max(sent, 1):.1f}B "
-                  f"(incl. {REGISTRY_HEADER_BYTES}B registry header)")
+        sink.close(max(time.monotonic() - start, 1e-9))
         print(f"ground-truth episodes: {dict(episode_counts)}")
-
 
 if __name__ == "__main__":
     main()
