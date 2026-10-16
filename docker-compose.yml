@@ -6,6 +6,10 @@ services:
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:${REDPANDA_VERSION}
     container_name: f1-redpanda
+    environment:
+      # Run as Community Edition: skip the 30-day Enterprise trial license that 24.3+ applies to new clusters.
+      # Undocumented internal flag; only takes effect when the cluster is first created (make reset).
+      __REDPANDA_DISABLE_BUILTIN_TRIAL_LICENSE: "true"
     command:
       - redpanda
       - start
