@@ -12,6 +12,8 @@ SCHEMA_DIR = Path(os.getenv("F1_SCHEMA_DIR", REPO_ROOT / "schemas"))
 
 TRADES_TOPIC = "fx.trades"
 GROUND_TRUTH_TOPIC = "fx.trades.ground_truth"
+TRADE_SCHEMA = "fx_trade.avsc"
+EPISODE_SCHEMA = "anomaly_episode.avsc"
 
 
 @dataclass(frozen=True)

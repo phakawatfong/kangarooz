@@ -8,8 +8,12 @@ from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext, StringSerializer
 
 from .avro_local import schema_text
-from .config import GROUND_TRUTH_TOPIC, TRADES_TOPIC, Connection
+from .config import EPISODE_SCHEMA, GROUND_TRUTH_TOPIC, TRADE_SCHEMA, TRADES_TOPIC, Connection
 from .model import AnomalyEpisode, Trade
+
+# Schemas are registered explicitly by `python -m fx_producer.registry` (the contract is owned in
+# /schemas, not invented by whichever producer runs first). Serialize with the latest registered version.
+SERIALIZER_CONF = {"auto.register.schemas": False, "use.latest.version": True}
 
 
 class FxProducer:
@@ -23,12 +27,8 @@ class FxProducer:
     def __init__(self, conn: Connection | None = None):
         conn = conn or Connection()
         self.sr = SchemaRegistryClient({"url": conn.schema_registry_url})
-        # Schemas are registered explicitly by `python -m fx_producer.registry` (the contract is
-        # owned in /schemas, not invented by whichever producer runs first). The producer then
-        # serializes with the latest registered version of the subject.
-        ser_conf = {"auto.register.schemas": False, "use.latest.version": True}
-        self.trade_ser = AvroSerializer(self.sr, schema_text("fx_trade.avsc"), conf=ser_conf)
-        self.episode_ser = AvroSerializer(self.sr, schema_text("anomaly_episode.avsc"), conf=ser_conf)
+        self.trade_ser = AvroSerializer(self.sr, schema_text(TRADE_SCHEMA), conf=SERIALIZER_CONF)
+        self.episode_ser = AvroSerializer(self.sr, schema_text(EPISODE_SCHEMA), conf=SERIALIZER_CONF)
         self.key_ser = StringSerializer("utf_8")
         self.producer = Producer(
             {

@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from .anomalies import AnomalyInjector
 from .avro_local import REGISTRY_HEADER_BYTES, encode
 from .chaos import apply_chaos
-from .config import SimConfig
+from .config import TRADE_SCHEMA, SimConfig
 from .market import MarketSimulator
 
 TICK_SECONDS = 0.1
@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> None:
                 if producer:
                     producer.send_trade(t)
                 else:
-                    dry_value_bytes += REGISTRY_HEADER_BYTES + len(encode(t.to_avro(), "fx_trade.avsc"))
+                    dry_value_bytes += REGISTRY_HEADER_BYTES + len(encode(t.to_avro(), TRADE_SCHEMA))
                     if sent < 3:
                         print(f"[sample trade] {t.to_avro()}  quote_amount={t.quote_amount}")
                 sent += 1

@@ -10,11 +10,11 @@ from __future__ import annotations
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 
 from .avro_local import schema_text
-from .config import GROUND_TRUTH_TOPIC, TRADES_TOPIC, Connection
+from .config import EPISODE_SCHEMA, GROUND_TRUTH_TOPIC, TRADE_SCHEMA, TRADES_TOPIC, Connection
 
 SUBJECTS = {
-    f"{TRADES_TOPIC}-value": "fx_trade.avsc",
-    f"{GROUND_TRUTH_TOPIC}-value": "anomaly_episode.avsc",
+    f"{TRADES_TOPIC}-value": TRADE_SCHEMA,
+    f"{GROUND_TRUTH_TOPIC}-value": EPISODE_SCHEMA,
 }
 
 

@@ -15,6 +15,7 @@ from confluent_kafka.schema_registry import Schema
 
 from fx_producer import cli
 from fx_producer.avro_local import schema_text
+from fx_producer.registry import SUBJECTS
 
 mock = pytest.importorskip("confluent_kafka.schema_registry._sync.mock_schema_registry_client")
 
@@ -70,8 +71,8 @@ def stub_kafka(monkeypatch):
 
     def registry(conf):
         sr = mock.MockSchemaRegistryClient({"url": "mock://golden"})
-        sr.register_schema("fx.trades-value", Schema(schema_text("fx_trade.avsc"), "AVRO"))
-        sr.register_schema("fx.trades.ground_truth-value", Schema(schema_text("anomaly_episode.avsc"), "AVRO"))
+        for subject, filename in SUBJECTS.items():
+            sr.register_schema(subject, Schema(schema_text(filename), "AVRO"))
         return sr
 
     monkeypatch.setattr(f"{KAFKA_MODULE}.Producer", StubProducer)

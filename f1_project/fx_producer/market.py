@@ -11,11 +11,14 @@ from .config import PAIRS, PairSpec, SimConfig
 from .model import Trade, to_decimal
 
 
+def rng_uuid(rng: random.Random) -> uuid.UUID:
+    return uuid.UUID(int=rng.getrandbits(128), version=4)
+
+
 class MarketSimulator:
     def __init__(self, cfg: SimConfig, rng: random.Random):
         self.cfg = cfg
         self.rng = rng
-        self.specs = {p.pair: p for p in PAIRS}
         self.mids = {p.pair: p.mid for p in PAIRS}
         self._pair_list = list(PAIRS)
         self._pair_weights = [p.weight for p in PAIRS]
@@ -53,7 +56,7 @@ class MarketSimulator:
         rate = rate_override if rate_override is not None else mid * (1 + self.rng.gauss(0.0, 0.00002))
         amount = self.rng.lognormvariate(self._amount_mu, self._amount_sigma) * amount_multiplier
         return Trade(
-            trade_id=str(uuid.UUID(int=self.rng.getrandbits(128), version=4)),
+            trade_id=str(rng_uuid(self.rng)),
             user_id=user or self.pick_user(),
             currency_pair=spec.pair,
             side=self.rng.choice(("BUY", "SELL")),
