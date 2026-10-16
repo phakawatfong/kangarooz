@@ -7,19 +7,16 @@
 from __future__ import annotations
 
 import argparse
-import random
 import time
 from collections import Counter
 from dataclasses import fields
 from datetime import datetime, timezone
 from typing import Protocol
 
-from .anomalies import AnomalyInjector
-from .chaos import apply_chaos
 from .config import SimConfig
 from .dry_run import DryRunSink
-from .market import MarketSimulator
 from .model import AnomalyEpisode, Trade
+from .simulator import Simulator
 
 TICK_SECONDS = 0.1
 
@@ -49,41 +46,18 @@ def parse_args(argv: list[str] | None = None) -> tuple[SimConfig, argparse.Names
     return cfg, args
 
 
-def main(argv: list[str] | None = None) -> None:
-    cfg, args = parse_args(argv)
-    rng = random.Random(cfg.seed)
-    market = MarketSimulator(cfg, rng)
-    injector = AnomalyInjector(cfg, market, rng)
-
-    sink: EventSink
-    if args.dry_run:
-        sink = DryRunSink()
-    else:
-        from .kafka_io import FxProducer  # imported lazily so --dry-run works without a broker
-
-        sink = FxProducer()
-
+def run(sim: Simulator, sink: EventSink) -> None:
+    """Drive the simulator in real time, TICK_SECONDS per step, until duration elapses or Ctrl+C."""
+    cfg = sim.cfg
     episode_counts: Counter[str] = Counter()
-    carry = 0.0
     start = time.monotonic()
     next_report = start + 5.0
-    print(f"producing ~{cfg.rate:.0f} trades/s for {cfg.duration:.0f}s "
-          f"({'dry run' if args.dry_run else 'kafka'}); Ctrl+C to stop")
     try:
         while True:
             loop_start = time.monotonic()
             if cfg.duration > 0 and loop_start - start >= cfg.duration:
                 break
-            now = datetime.now(timezone.utc)
-            market.advance(TICK_SECONDS)
-
-            carry += cfg.rate * TICK_SECONDS
-            n = int(carry)
-            carry -= n
-            trades = [market.make_trade(now) for _ in range(n)]
-            trades, episodes = injector.tick(now, TICK_SECONDS, trades)
-            trades = apply_chaos(trades, cfg, rng)
-
+            trades, episodes = sim.step(datetime.now(timezone.utc), TICK_SECONDS)
             for ep in episodes:
                 episode_counts[ep.anomaly_type] += 1
                 sink.send_episode(ep)
@@ -101,6 +75,20 @@ def main(argv: list[str] | None = None) -> None:
     finally:
         sink.close(max(time.monotonic() - start, 1e-9))
         print(f"ground-truth episodes: {dict(episode_counts)}")
+
+
+def main(argv: list[str] | None = None) -> None:
+    cfg, args = parse_args(argv)
+    sink: EventSink
+    if args.dry_run:
+        sink = DryRunSink()
+    else:
+        from .kafka_io import FxProducer  # imported lazily so --dry-run works without a broker
+
+        sink = FxProducer()
+    print(f"producing ~{cfg.rate:.0f} trades/s for {cfg.duration:.0f}s "
+          f"({'dry run' if args.dry_run else 'kafka'}); Ctrl+C to stop")
+    run(Simulator(cfg), sink)
 
 if __name__ == "__main__":
     main()
