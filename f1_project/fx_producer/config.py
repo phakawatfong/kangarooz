@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict
+
 # Repo root = .../f1_project (outer). This file lives in f1_project/f1_project/fx_producer/.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_DIR = Path(os.getenv("F1_SCHEMA_DIR", REPO_ROOT / "schemas"))
@@ -41,15 +43,24 @@ PAIRS: tuple[PairSpec, ...] = (
 )
 
 
-@dataclass(frozen=True)
-class Connection:
-    bootstrap_servers: str = os.getenv("F1_BOOTSTRAP", "localhost:19092")
-    schema_registry_url: str = os.getenv("F1_SCHEMA_REGISTRY", "http://localhost:18081")
+class Connection(BaseModel):
+    """Broker + registry endpoints. Defaults = the local docker-compose stack."""
+
+    model_config = ConfigDict(frozen=True)
+
+    bootstrap_servers: str = "localhost:19092"
+    schema_registry_url: str = "http://localhost:18081"
+
+    @classmethod
+    def from_env(cls) -> Connection:
+        env = {"bootstrap_servers": "F1_BOOTSTRAP", "schema_registry_url": "F1_SCHEMA_REGISTRY"}
+        return cls(**{field: os.environ[var] for field, var in env.items() if var in os.environ})
 
 
-@dataclass
-class SimConfig:
+class SimConfig(BaseModel):
     """Knobs for the simulator. Defaults = laptop dev profile from the Phase 1 sizing card."""
+
+    model_config = ConfigDict(frozen=True)
 
     rate: float = 500.0             # trades/sec sustained (dev profile; prod target is 1-5k/s)
     duration: float = 60.0          # seconds; <= 0 means run until Ctrl+C

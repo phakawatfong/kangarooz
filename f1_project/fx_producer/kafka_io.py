@@ -24,8 +24,7 @@ class FxProducer:
     system of record + CDC/outbox (or Kafka transactions to make both writes atomic).
     """
 
-    def __init__(self, conn: Connection | None = None):
-        conn = conn or Connection()
+    def __init__(self, conn: Connection):
         self.sr = SchemaRegistryClient({"url": conn.schema_registry_url})
         self.trade_ser = AvroSerializer(self.sr, schema_text(TRADE_SCHEMA), conf=SERIALIZER_CONF)
         self.episode_ser = AvroSerializer(self.sr, schema_text(EPISODE_SCHEMA), conf=SERIALIZER_CONF)

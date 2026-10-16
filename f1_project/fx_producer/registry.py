@@ -19,7 +19,7 @@ SUBJECTS = {
 
 
 def main() -> None:
-    conn = Connection()
+    conn = Connection.from_env()
     sr = SchemaRegistryClient({"url": conn.schema_registry_url})
     for subject, filename in SUBJECTS.items():
         schema_id = sr.register_schema(subject, Schema(schema_text(filename), "AVRO"), normalize_schemas=True)

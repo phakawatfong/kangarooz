@@ -50,7 +50,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--max", type=int, default=5000)
     args = ap.parse_args()
-    conn = Connection()
+    conn = Connection.from_env()
 
     msgs = _consume(conn, TRADES_TOPIC, args.max)
     if not msgs:

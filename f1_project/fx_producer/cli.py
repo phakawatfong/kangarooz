@@ -9,11 +9,10 @@ from __future__ import annotations
 import argparse
 import time
 from collections import Counter
-from dataclasses import fields
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Protocol, get_args
 
-from .config import SimConfig
+from .config import Connection, SimConfig
 from .dry_run import DryRunSink
 from .model import AnomalyEpisode, Trade
 from .simulator import Simulator
@@ -33,16 +32,14 @@ class EventSink(Protocol):
 
 
 def parse_args(argv: list[str] | None = None) -> tuple[SimConfig, argparse.Namespace]:
-    defaults = SimConfig()
+    """One flag per SimConfig field, typed from its annotation (`int | None` -> int)."""
     p = argparse.ArgumentParser(description="F1 synthetic FX trade producer (Phase 1)")
-    for f in fields(SimConfig):
-        default = getattr(defaults, f.name)
-        flag = "--" + f.name.replace("_", "-")
-        typ = int if f.name in ("n_users", "seed") else float
-        p.add_argument(flag, type=typ, default=default, help=f"default: {default}")
+    for name, field in SimConfig.model_fields.items():
+        typ = next(t for t in get_args(field.annotation) or (field.annotation,) if t is not type(None))
+        p.add_argument("--" + name.replace("_", "-"), type=typ, default=field.default, help=f"default: {field.default}")
     p.add_argument("--dry-run", action="store_true", help="don't connect to Kafka; print samples and Avro sizes")
     args = p.parse_args(argv)
-    cfg = SimConfig(**{f.name: getattr(args, f.name) for f in fields(SimConfig)})
+    cfg = SimConfig(**{name: getattr(args, name) for name in SimConfig.model_fields})
     return cfg, args
 
 
@@ -85,7 +82,7 @@ def main(argv: list[str] | None = None) -> None:
     else:
         from .kafka_io import FxProducer  # imported lazily so --dry-run works without a broker
 
-        sink = FxProducer()
+        sink = FxProducer(Connection.from_env())
     print(f"producing ~{cfg.rate:.0f} trades/s for {cfg.duration:.0f}s "
           f"({'dry run' if args.dry_run else 'kafka'}); Ctrl+C to stop")
     run(Simulator(cfg), sink)
