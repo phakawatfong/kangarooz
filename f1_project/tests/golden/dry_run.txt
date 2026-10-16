@@ -1,0 +1,23 @@
+producing ~500 trades/s for 12s (dry run); Ctrl+C to stop
+[sample trade] {'trade_id': 'b38a088c-a65e-4389-b74d-0fb132e70629', 'user_id': 'U00016', 'currency_pair': 'GBP/USD', 'side': 'BUY', 'rate': Decimal('1.30002000'), 'base_amount': Decimal('3061.41000000'), 'event_timestamp': datetime.datetime(2026, 10, 14, 9, 0, tzinfo=datetime.timezone.utc)}  quote_amount=3979.89422820
+[sample trade] {'trade_id': '27cd8130-4722-4389-971a-a8766c307511', 'user_id': 'U00001', 'currency_pair': 'EUR/USD', 'side': 'SELL', 'rate': Decimal('1.10001000'), 'base_amount': Decimal('5143.76000000'), 'event_timestamp': datetime.datetime(2026, 10, 14, 9, 0, tzinfo=datetime.timezone.utc)}  quote_amount=5658.18743760
+[sample trade] {'trade_id': '89463e85-759c-4e66-bacf-b3d00b1f9163', 'user_id': 'U00000', 'currency_pair': 'USD/SGD', 'side': 'SELL', 'rate': Decimal('1.29998000'), 'base_amount': Decimal('2107.41000000'), 'event_timestamp': datetime.datetime(2026, 10, 14, 9, 0, tzinfo=datetime.timezone.utc)}  quote_amount=2739.59085180
+[ground truth] fat_finger     TRADE:28c27491-ac83-495b-93f0-a378596bf99f {'multiplier': '164.7', 'currency_pair': 'EUR/USD'}
+[ground truth] volume_burst   PAIR:EUR/USD {'multiplier': '9.7', 'trades_per_sec': '1211', 'duration_s': '30'}
+[ground truth] price_spike    TRADE:f2247b8d-99c3-4e15-aa65-0cdf87585e33 {'deviation_pct': '-1.06', 'currency_pair': 'USD/THB'}
+[ground truth] volume_burst   PAIR:EUR/USD {'multiplier': '6.2', 'trades_per_sec': '779', 'duration_s': '20'}
+t=  5.1s sent=    7886 (  1546/s) avg_value= 75.4B episodes={'fat_finger': 1, 'volume_burst': 2, 'price_spike': 1}
+[ground truth] fat_finger     TRADE:4f8e4c1f-79d8-48f5-af7f-dc360deea7a1 {'multiplier': '195.1', 'currency_pair': 'EUR/USD'}
+[ground truth] price_spike    TRADE:b256b1b7-1d83-40bf-a277-a39f6f8b881b {'deviation_pct': '2.34', 'currency_pair': 'USD/SGD'}
+[ground truth] price_spike    TRADE:110a5323-e406-4c87-b306-04ec056c7e26 {'deviation_pct': '-2.90', 'currency_pair': 'USD/SGD'}
+[ground truth] account_burst  USER:U00842 {'trades_per_sec': '18', 'duration_s': '10'}
+[ground truth] volume_burst   PAIR:EUR/USD {'multiplier': '7.4', 'trades_per_sec': '927', 'duration_s': '25'}
+[ground truth] price_spike    TRADE:71e28b86-2deb-403a-9b12-be9b959560a0 {'deviation_pct': '1.65', 'currency_pair': 'USD/THB'}
+t= 10.1s sent=   23420 (  2319/s) avg_value= 75.3B episodes={'fat_finger': 2, 'volume_burst': 3, 'price_spike': 4, 'account_burst': 1}
+[ground truth] fat_finger     TRADE:3cb8bd62-5373-4bc3-ab94-f97c15e20593 {'multiplier': '166.6', 'currency_pair': 'USD/SGD'}
+[ground truth] price_spike    TRADE:0d5066e8-dc4e-4929-90ba-d307adcfb279 {'deviation_pct': '-1.14', 'currency_pair': 'USD/JPY'}
+[ground truth] price_spike    TRADE:3d4e24d2-de01-4bd1-8dba-e453434b0dfc {'deviation_pct': '-2.84', 'currency_pair': 'EUR/USD'}
+[ground truth] fat_finger     TRADE:d4592b21-c17e-49bf-879a-7ca715ffbc8c {'multiplier': '86.1', 'currency_pair': 'USD/SGD'}
+[ground truth] price_spike    TRADE:93831e77-8b3e-4715-8a35-0848e788cee0 {'deviation_pct': '-2.29', 'currency_pair': 'GBP/USD'}
+done (dry run): trades=30590 avg_value=75.3B (incl. 5B registry header)
+ground-truth episodes: {'fat_finger': 4, 'volume_burst': 3, 'price_spike': 7, 'account_burst': 1}

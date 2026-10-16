@@ -1,0 +1,7 @@
+producing ~500 trades/s for 12s (kafka); Ctrl+C to stop
+t=  5.1s sent=    7886 (  1546/s) avg_value= 75.4B episodes={'fat_finger': 1, 'volume_burst': 2, 'price_spike': 1}
+t= 10.1s sent=   23420 (  2319/s) avg_value= 75.3B episodes={'fat_finger': 2, 'volume_burst': 3, 'price_spike': 4, 'account_burst': 1}
+done: sent=30590 delivered=30605 failed=0 unflushed=0 avg_value=75.3B avg_key=36.0B rate=2528/s
+ground-truth episodes: {'fat_finger': 4, 'volume_burst': 3, 'price_spike': 7, 'account_burst': 1}
+records={'fx.trades': 30590, 'fx.trades.ground_truth': 15}
+sha256=1163512bf50f0c72384a861350c48e9766e953a50014801faeeb43f6c3ca5ecb
