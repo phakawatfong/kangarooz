@@ -5,12 +5,15 @@ import random
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import pytest
 from fastavro.validation import validate
+from pydantic import ValidationError
 
-from fx_producer.anomalies import AnomalyInjector
-from fx_producer.avro_local import REGISTRY_HEADER_BYTES, decode, encode, parsed_schema, schema_text
-from fx_producer.config import SimConfig
-from fx_producer.market import MarketSimulator
+from fx_producer.simulation.anomalies import AnomalyInjector
+from fx_producer.adapters.avro_local import REGISTRY_HEADER_BYTES, decode, encode, parsed_schema, schema_text
+from fx_producer.config import EPISODE_SCHEMA, TRADE_SCHEMA, SimConfig
+from fx_producer.simulation.market import MarketSimulator
+from fx_producer.domain import AnomalyEpisode, Trade
 
 NOW = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 
@@ -26,9 +29,9 @@ def test_trade_validates_and_round_trips():
     _, _, market = _sim()
     for _ in range(200):
         t = market.make_trade(NOW)
-        rec = t.to_avro()
-        assert validate(rec, parsed_schema("fx_trade.avsc"))
-        back = decode(encode(rec, "fx_trade.avsc"), "fx_trade.avsc")
+        rec = t.model_dump()
+        assert validate(rec, parsed_schema(TRADE_SCHEMA))
+        back = decode(encode(rec, TRADE_SCHEMA), TRADE_SCHEMA)
         assert back["trade_id"] == t.trade_id
         assert back["rate"] == t.rate and isinstance(back["rate"], Decimal)
         assert back["event_timestamp"] == NOW
@@ -36,14 +39,14 @@ def test_trade_validates_and_round_trips():
 
 def test_trade_contract_has_no_labels():
     """Leakage guard: the detector's input must never contain ground truth."""
-    names = {f["name"] for f in json.loads(schema_text("fx_trade.avsc"))["fields"]}
+    names = {f["name"] for f in json.loads(schema_text(TRADE_SCHEMA))["fields"]}
     assert names == {"trade_id", "user_id", "currency_pair", "side", "rate", "base_amount", "event_timestamp"}
     assert not any("anomal" in n or "label" in n or "inject" in n for n in names)
 
 
 def test_encoded_size_matches_sizing_card():
     _, _, market = _sim()
-    sizes = [REGISTRY_HEADER_BYTES + len(encode(market.make_trade(NOW).to_avro(), "fx_trade.avsc")) for _ in range(500)]
+    sizes = [REGISTRY_HEADER_BYTES + len(encode(market.make_trade(NOW).model_dump(), TRADE_SCHEMA)) for _ in range(500)]
     avg = sum(sizes) / len(sizes)
     print(f"avg encoded value size incl. header: {avg:.1f} B")
     # Value only (key + record overhead come on top). Sizing card estimated ~117 B before key/overhead.
@@ -55,5 +58,19 @@ def test_episode_validates():
     inj = AnomalyInjector(cfg, market, rng)
     eps = [inj.price_spike(NOW)[1], inj.fat_finger(NOW)[1], inj.start_volume_burst(NOW), inj.start_account_burst(NOW)]
     for ep in eps:
-        assert validate(ep.to_avro(), parsed_schema("anomaly_episode.avsc"))
-        assert decode(encode(ep.to_avro(), "anomaly_episode.avsc"), "anomaly_episode.avsc")["episode_id"] == ep.episode_id
+        assert validate(ep.model_dump(), parsed_schema(EPISODE_SCHEMA))
+        assert decode(encode(ep.model_dump(), EPISODE_SCHEMA), EPISODE_SCHEMA)["episode_id"] == ep.episode_id
+
+
+def test_models_mirror_avro_schemas():
+    """model_dump() is the Avro record, so model fields must match the .avsc fields, in order."""
+    for model, schema in ((Trade, TRADE_SCHEMA), (AnomalyEpisode, EPISODE_SCHEMA)):
+        assert list(model.model_fields) == [f["name"] for f in json.loads(schema_text(schema))["fields"]]
+
+
+def test_trade_rejects_values_outside_decimal_18_8():
+    _, _, market = _sim()
+    t = market.make_trade(NOW)
+    for bad in (Decimal("1.123456789"), Decimal("12345678901")):
+        with pytest.raises(ValidationError, match="rate"):
+            Trade(**{**t.model_dump(), "rate": bad})

@@ -10,13 +10,12 @@ topic, so the detector can never read the labels. Two kinds:
 from __future__ import annotations
 
 import random
-import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .config import PairSpec, SimConfig
-from .market import MarketSimulator
-from .model import AnomalyEpisode, Trade
+from ..config import PairSpec, SimConfig
+from .market import MarketSimulator, rng_uuid
+from ..domain import AnomalyEpisode, Trade
 
 
 @dataclass
@@ -39,7 +38,7 @@ class AnomalyInjector:
         return per_min > 0 and self.rng.random() < per_min * dt / 60.0
 
     def _new_id(self) -> str:
-        return f"E-{uuid.UUID(int=self.rng.getrandbits(128), version=4).hex[:12]}"
+        return f"E-{rng_uuid(self.rng).hex[:12]}"
 
     # ---------- point anomalies ----------
     def price_spike(self, now: datetime) -> tuple[Trade, AnomalyEpisode]:
@@ -48,8 +47,9 @@ class AnomalyInjector:
         deviation = self.rng.uniform(0.01, 0.03) * self.rng.choice((-1, 1))
         trade = self.market.make_trade(now, pair=spec, rate_override=self.market.mids[spec.pair] * (1 + deviation))
         ep = AnomalyEpisode(
-            self._new_id(), "price_spike", "TRADE", trade.trade_id, now, now,
-            {"deviation_pct": f"{deviation * 100:.2f}", "currency_pair": spec.pair},
+            episode_id=self._new_id(), anomaly_type="price_spike", scope="TRADE", scope_key=trade.trade_id,
+            start_time=now, end_time=now,
+            params={"deviation_pct": f"{deviation * 100:.2f}", "currency_pair": spec.pair},
         )
         return trade, ep
 
@@ -58,8 +58,9 @@ class AnomalyInjector:
         mult = self.rng.uniform(50, 200)
         trade = self.market.make_trade(now, amount_multiplier=mult)
         ep = AnomalyEpisode(
-            self._new_id(), "fat_finger", "TRADE", trade.trade_id, now, now,
-            {"multiplier": f"{mult:.1f}", "currency_pair": trade.currency_pair},
+            episode_id=self._new_id(), anomaly_type="fat_finger", scope="TRADE", scope_key=trade.trade_id,
+            start_time=now, end_time=now,
+            params={"multiplier": f"{mult:.1f}", "currency_pair": trade.currency_pair},
         )
         return trade, ep
 
@@ -71,8 +72,9 @@ class AnomalyInjector:
         mult = self.rng.uniform(5, 10)
         per_sec = max(20.0, self.cfg.rate * spec.weight * mult)
         ep = AnomalyEpisode(
-            self._new_id(), "volume_burst", "PAIR", spec.pair, now, now + timedelta(seconds=duration),
-            {"multiplier": f"{mult:.1f}", "trades_per_sec": f"{per_sec:.0f}", "duration_s": f"{duration:.0f}"},
+            episode_id=self._new_id(), anomaly_type="volume_burst", scope="PAIR", scope_key=spec.pair,
+            start_time=now, end_time=now + timedelta(seconds=duration),
+            params={"multiplier": f"{mult:.1f}", "trades_per_sec": f"{per_sec:.0f}", "duration_s": f"{duration:.0f}"},
         )
         self.active.append(_Burst(ep, per_sec, pair=spec))
         return ep
@@ -83,8 +85,9 @@ class AnomalyInjector:
         per_sec = self.rng.uniform(10, 30)
         duration = 10.0
         ep = AnomalyEpisode(
-            self._new_id(), "account_burst", "USER", user, now, now + timedelta(seconds=duration),
-            {"trades_per_sec": f"{per_sec:.0f}", "duration_s": f"{duration:.0f}"},
+            episode_id=self._new_id(), anomaly_type="account_burst", scope="USER", scope_key=user,
+            start_time=now, end_time=now + timedelta(seconds=duration),
+            params={"trades_per_sec": f"{per_sec:.0f}", "duration_s": f"{duration:.0f}"},
         )
         self.active.append(_Burst(ep, per_sec, user=user))
         return ep

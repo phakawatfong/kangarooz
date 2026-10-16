@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fx_producer.config import PAIRS, SimConfig
-from fx_producer.market import MarketSimulator
-from fx_producer.model import SCALE, Trade, to_decimal
+from fx_producer.simulation.market import MarketSimulator
+from fx_producer.domain import SCALE, Trade, to_decimal
 
 NOW = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 
@@ -23,10 +23,16 @@ def test_rate_convention_independent_of_side():
 
 
 def test_quote_amount_is_multiplication_and_direction_is_derived():
-    t = Trade("t1", "U00001", "USD/THB", "BUY", to_decimal("36.1234", 4), to_decimal("1000", 2), NOW)
+    t = Trade(
+        trade_id="t1", user_id="U00001", currency_pair="USD/THB", side="BUY",
+        rate=to_decimal("36.1234", 4), base_amount=to_decimal("1000", 2), event_timestamp=NOW,
+    )
     assert t.quote_amount == Decimal("36123.40000000")
     assert (t.bought_ccy, t.sold_ccy) == ("USD", "THB")
-    s = Trade("t2", "U00001", "USD/THB", "SELL", t.rate, t.base_amount, NOW)
+    s = Trade(
+        trade_id="t2", user_id="U00001", currency_pair="USD/THB", side="SELL",
+        rate=t.rate, base_amount=t.base_amount, event_timestamp=NOW,
+    )
     assert (s.bought_ccy, s.sold_ccy) == ("THB", "USD")
 
 

@@ -8,7 +8,7 @@ from functools import lru_cache
 
 from fastavro import parse_schema, schemaless_reader, schemaless_writer
 
-from .config import SCHEMA_DIR
+from ..config import SCHEMA_DIR
 
 # Confluent wire format: magic byte 0x00 + 4-byte schema id, then the Avro body.
 REGISTRY_HEADER_BYTES = 5

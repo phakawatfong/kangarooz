@@ -7,6 +7,7 @@ authors = [{ email = "phakawatfong@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "confluent-kafka[avro,schemaregistry]>=2.6",
+    "pydantic>=2.9",
 ]
 
 [dependency-groups]
