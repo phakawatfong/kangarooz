@@ -13,15 +13,15 @@ from datetime import datetime, timezone
 from typing import Protocol, get_args
 
 from .config import Connection, SimConfig
-from .dry_run import DryRunSink
-from .model import AnomalyEpisode, Trade
-from .simulator import Simulator
+from .adapters.dry_run_sink import DryRunSink
+from .domain import AnomalyEpisode, Trade
+from .simulation.simulator import Simulator
 
 TICK_SECONDS = 0.1
 
 
 class EventSink(Protocol):
-    """Where trades and ground truth go: Kafka (kafka_io.FxProducer) or the console (dry_run.DryRunSink)."""
+    """Where trades and ground truth go: Kafka (adapters.kafka_sink.KafkaSink) or the console (adapters.dry_run_sink.DryRunSink)."""
 
     sent: int
     value_bytes: int
@@ -80,9 +80,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.dry_run:
         sink = DryRunSink()
     else:
-        from .kafka_io import FxProducer  # imported lazily so --dry-run works without a broker
+        from .adapters.kafka_sink import KafkaSink  # imported lazily so --dry-run works without a broker
 
-        sink = FxProducer(Connection.from_env())
+        sink = KafkaSink(Connection.from_env())
     print(f"producing ~{cfg.rate:.0f} trades/s for {cfg.duration:.0f}s "
           f"({'dry run' if args.dry_run else 'kafka'}); Ctrl+C to stop")
     run(Simulator(cfg), sink)

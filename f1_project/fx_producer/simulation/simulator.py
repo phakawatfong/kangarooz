@@ -7,9 +7,9 @@ from datetime import datetime
 
 from .anomalies import AnomalyInjector
 from .chaos import apply_chaos
-from .config import SimConfig
+from ..config import SimConfig
 from .market import MarketSimulator
-from .model import AnomalyEpisode, Trade
+from ..domain import AnomalyEpisode, Trade
 
 
 class Simulator:

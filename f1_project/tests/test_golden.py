@@ -14,13 +14,13 @@ import pytest
 from confluent_kafka.schema_registry import Schema
 
 from fx_producer import cli
-from fx_producer.avro_local import schema_text
+from fx_producer.adapters.avro_local import schema_text
 from fx_producer.registry import SUBJECTS
 
 mock = pytest.importorskip("confluent_kafka.schema_registry._sync.mock_schema_registry_client")
 
 GOLDEN = Path(__file__).parent / "golden"
-KAFKA_MODULE = "fx_producer.kafka_io"
+KAFKA_MODULE = "fx_producer.adapters.kafka_sink"
 EPOCH = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 ARGS = [
     "--seed", "42", "--duration", "12",

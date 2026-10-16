@@ -9,11 +9,11 @@ import pytest
 from fastavro.validation import validate
 from pydantic import ValidationError
 
-from fx_producer.anomalies import AnomalyInjector
-from fx_producer.avro_local import REGISTRY_HEADER_BYTES, decode, encode, parsed_schema, schema_text
+from fx_producer.simulation.anomalies import AnomalyInjector
+from fx_producer.adapters.avro_local import REGISTRY_HEADER_BYTES, decode, encode, parsed_schema, schema_text
 from fx_producer.config import EPISODE_SCHEMA, TRADE_SCHEMA, SimConfig
-from fx_producer.market import MarketSimulator
-from fx_producer.model import AnomalyEpisode, Trade
+from fx_producer.simulation.market import MarketSimulator
+from fx_producer.domain import AnomalyEpisode, Trade
 
 NOW = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 

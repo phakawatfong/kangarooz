@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from .avro_local import REGISTRY_HEADER_BYTES, encode
-from .config import TRADE_SCHEMA
-from .model import AnomalyEpisode, Trade
+from ..config import TRADE_SCHEMA
+from ..domain import AnomalyEpisode, Trade
 
 
 class DryRunSink:

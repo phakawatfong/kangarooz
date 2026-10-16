@@ -11,8 +11,8 @@ from __future__ import annotations
 import random
 from datetime import timedelta
 
-from .config import SimConfig
-from .model import Trade
+from ..config import SimConfig
+from ..domain import Trade
 
 
 def apply_chaos(trades: list[Trade], cfg: SimConfig, rng: random.Random) -> list[Trade]:

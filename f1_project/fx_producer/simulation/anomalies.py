@@ -13,9 +13,9 @@ import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .config import PairSpec, SimConfig
+from ..config import PairSpec, SimConfig
 from .market import MarketSimulator, rng_uuid
-from .model import AnomalyEpisode, Trade
+from ..domain import AnomalyEpisode, Trade
 
 
 @dataclass

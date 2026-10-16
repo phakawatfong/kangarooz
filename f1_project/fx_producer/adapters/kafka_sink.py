@@ -8,15 +8,15 @@ from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext, StringSerializer
 
 from .avro_local import schema_text
-from .config import EPISODE_SCHEMA, GROUND_TRUTH_TOPIC, TRADE_SCHEMA, TRADES_TOPIC, Connection
-from .model import AnomalyEpisode, Trade
+from ..config import EPISODE_SCHEMA, GROUND_TRUTH_TOPIC, TRADE_SCHEMA, TRADES_TOPIC, Connection
+from ..domain import AnomalyEpisode, Trade
 
 # Schemas are registered explicitly by `python -m fx_producer.registry` (the contract is owned in
 # /schemas, not invented by whichever producer runs first). Serialize with the latest registered version.
 SERIALIZER_CONF = {"auto.register.schemas": False, "use.latest.version": True}
 
 
-class FxProducer:
+class KafkaSink:
     """Writes trades and ground-truth episodes.
 
     Note: writing to two topics is a dual write. Acceptable here because this is a SIMULATOR

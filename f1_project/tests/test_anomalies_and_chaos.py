@@ -3,10 +3,10 @@
 import random
 from datetime import datetime, timedelta, timezone
 
-from fx_producer.anomalies import AnomalyInjector
-from fx_producer.chaos import apply_chaos
+from fx_producer.simulation.anomalies import AnomalyInjector
+from fx_producer.simulation.chaos import apply_chaos
 from fx_producer.config import SimConfig
-from fx_producer.market import MarketSimulator
+from fx_producer.simulation.market import MarketSimulator
 
 NOW = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 

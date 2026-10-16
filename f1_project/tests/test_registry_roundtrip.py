@@ -8,10 +8,10 @@ from confluent_kafka.schema_registry import Schema
 from confluent_kafka.schema_registry.avro import AvroDeserializer, AvroSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 
-from fx_producer.avro_local import schema_text
-from fx_producer.kafka_io import SERIALIZER_CONF
+from fx_producer.adapters.avro_local import schema_text
+from fx_producer.adapters.kafka_sink import SERIALIZER_CONF
 from fx_producer.config import TRADE_SCHEMA, TRADES_TOPIC, SimConfig
-from fx_producer.market import MarketSimulator
+from fx_producer.simulation.market import MarketSimulator
 
 mock = pytest.importorskip("confluent_kafka.schema_registry._sync.mock_schema_registry_client")
 

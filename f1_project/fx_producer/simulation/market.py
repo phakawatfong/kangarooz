@@ -8,8 +8,8 @@ import uuid
 from datetime import datetime
 from typing import get_args
 
-from .config import PAIRS, PairSpec, SimConfig
-from .model import Side, Trade, to_decimal
+from ..config import PAIRS, PairSpec, SimConfig
+from ..domain import Side, Trade, to_decimal
 
 
 def rng_uuid(rng: random.Random) -> uuid.UUID:

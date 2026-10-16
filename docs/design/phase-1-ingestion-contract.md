@@ -104,10 +104,13 @@ definitions into OpenTofu.**
 
 | Module | Responsibility |
 |---|---|
-| `market.py` | Random-walk mid per pair; skewed pair mix (USD/SGD 30%); Zipf-skewed users ("whales" = natural false positives for naive per-user rules); log-normal sizes |
-| `anomalies.py` | Injects anomalies **and** emits their ground-truth episodes |
-| `chaos.py` | Late events (5–25 s = inside watermark, 40–120 s = beyond) and app-level duplicates |
-| `kafka_io.py` | Avro serialization via Schema Registry; key = `trade_id`; `acks=all`, idempotent producer, lz4 |
+| `domain.py` | `Trade` / `AnomalyEpisode` Pydantic models mirroring the `.avsc` contracts |
+| `simulation/market.py` | Random-walk mid per pair; skewed pair mix (USD/SGD 30%); Zipf-skewed users ("whales" = natural false positives for naive per-user rules); log-normal sizes |
+| `simulation/anomalies.py` | Injects anomalies **and** emits their ground-truth episodes |
+| `simulation/chaos.py` | Late events (5–25 s = inside watermark, 40–120 s = beyond) and app-level duplicates |
+| `simulation/simulator.py` | One tick: market move, normal flow, anomalies, chaos |
+| `adapters/kafka_sink.py` | Avro serialization via Schema Registry; key = `trade_id`; `acks=all`, idempotent producer, lz4 |
+| `adapters/dry_run_sink.py` | `--dry-run` console output and Avro sizing |
 | `registry.py` | Registers both schemas explicitly, sets BACKWARD compatibility |
 | `cli.py` | Rate-controlled loop (100 ms ticks), all knobs as flags, `--dry-run` without a broker |
 | `verify.py` | Reads back the topic and checks the design assumptions |
@@ -123,7 +126,7 @@ definitions into OpenTofu.**
 
 **Two kinds of duplicates (worth saying in an interview):** the idempotent producer removes
 duplicates caused by *broker-level* retries; it cannot remove *application-level* duplicates
-(same trade sent twice), which `chaos.py` injects on purpose. Only the sink's dedupe on
+(same trade sent twice), which `simulation/chaos.py` injects on purpose. Only the sink's dedupe on
 `trade_id` handles those.
 
 **Known simplification:** the simulator writes trades and episodes to two topics — a dual write.

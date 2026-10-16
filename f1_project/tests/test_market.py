@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fx_producer.config import PAIRS, SimConfig
-from fx_producer.market import MarketSimulator
-from fx_producer.model import SCALE, Trade, to_decimal
+from fx_producer.simulation.market import MarketSimulator
+from fx_producer.domain import SCALE, Trade, to_decimal
 
 NOW = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 
