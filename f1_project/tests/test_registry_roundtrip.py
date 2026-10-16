@@ -22,7 +22,7 @@ def test_wire_format_and_decode():
     ser = AvroSerializer(sr, schema_text(TRADE_SCHEMA), conf=SERIALIZER_CONF)
     trade = MarketSimulator(SimConfig(seed=2), random.Random(2)).make_trade(datetime.now(timezone.utc))
     ctx = SerializationContext(TRADES_TOPIC, MessageField.VALUE)
-    payload = ser(trade.to_avro(), ctx)
+    payload = ser(trade.model_dump(), ctx)
     assert payload[0] == 0  # magic byte
     assert int.from_bytes(payload[1:5], "big") == schema_id  # schema id travels with every message
     assert AvroDeserializer(sr)(payload, ctx)["trade_id"] == trade.trade_id

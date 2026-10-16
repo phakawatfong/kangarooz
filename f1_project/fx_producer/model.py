@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import ROUND_HALF_EVEN, Decimal
+from typing import Annotated, Literal
+
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 # Avro decimal(18, 8): every Decimal must be quantized to exactly 8 places.
 SCALE = Decimal("0.00000001")
@@ -21,18 +22,27 @@ def to_decimal(value: float | str | Decimal, decimals: int | None = None) -> Dec
     return d.quantize(SCALE, ROUND_HALF_EVEN)
 
 
-@dataclass(frozen=True)
-class Trade:
-    """One executed FX trade (raw facts only, no labels)."""
+Side = Literal["BUY", "SELL"]
+Scope = Literal["TRADE", "USER", "PAIR"]
+AnomalyType = Literal["price_spike", "fat_finger", "volume_burst", "account_burst"]
+AvroDecimal = Annotated[Decimal, Field(max_digits=18, decimal_places=8)]
+
+
+class Trade(BaseModel):
+    """One executed FX trade (raw facts only, no labels). Fields mirror schemas/fx_trade.avsc."""
+
+    model_config = ConfigDict(frozen=True)
 
     trade_id: str
     user_id: str
     currency_pair: str  # "BASE/QUOTE", market convention
-    side: str  # "BUY" | "SELL" of the BASE currency
-    rate: Decimal  # quote per 1 base, independent of side
-    base_amount: Decimal  # in base currency
-    event_timestamp: datetime  # tz-aware UTC, when the trade executed
+    side: Side  # of the BASE currency
+    rate: AvroDecimal  # quote per 1 base, independent of side
+    base_amount: AvroDecimal  # in base currency
+    event_timestamp: AwareDatetime  # when the trade executed
 
+    # Derived values are plain properties, never computed_field: they must stay out of model_dump(),
+    # which is the Avro record.
     @property
     def base_ccy(self) -> str:
         return self.currency_pair.split("/")[0]
@@ -54,37 +64,16 @@ class Trade:
     def sold_ccy(self) -> str:
         return self.quote_ccy if self.side == "BUY" else self.base_ccy
 
-    def to_avro(self) -> dict:
-        return {
-            "trade_id": self.trade_id,
-            "user_id": self.user_id,
-            "currency_pair": self.currency_pair,
-            "side": self.side,
-            "rate": self.rate,
-            "base_amount": self.base_amount,
-            "event_timestamp": self.event_timestamp,
-        }
 
+class AnomalyEpisode(BaseModel):
+    """Ground truth for one injected anomaly (point or collective). Mirrors schemas/anomaly_episode.avsc."""
 
-@dataclass(frozen=True)
-class AnomalyEpisode:
-    """Ground truth for one injected anomaly (point or collective)."""
+    model_config = ConfigDict(frozen=True)
 
     episode_id: str
-    anomaly_type: str  # price_spike | fat_finger | volume_burst | account_burst
-    scope: str  # TRADE | USER | PAIR
+    anomaly_type: AnomalyType
+    scope: Scope
     scope_key: str  # trade_id | user_id | currency_pair
-    start_time: datetime
-    end_time: datetime
-    params: dict[str, str] = field(default_factory=dict)
-
-    def to_avro(self) -> dict:
-        return {
-            "episode_id": self.episode_id,
-            "anomaly_type": self.anomaly_type,
-            "scope": self.scope,
-            "scope_key": self.scope_key,
-            "start_time": self.start_time,
-            "end_time": self.end_time,
-            "params": dict(self.params),
-        }
+    start_time: AwareDatetime
+    end_time: AwareDatetime
+    params: dict[str, str] = Field(default_factory=dict)

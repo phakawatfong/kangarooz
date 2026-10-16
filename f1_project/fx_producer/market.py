@@ -6,9 +6,10 @@ import math
 import random
 import uuid
 from datetime import datetime
+from typing import get_args
 
 from .config import PAIRS, PairSpec, SimConfig
-from .model import Trade, to_decimal
+from .model import Side, Trade, to_decimal
 
 
 def rng_uuid(rng: random.Random) -> uuid.UUID:
@@ -59,7 +60,7 @@ class MarketSimulator:
             trade_id=str(rng_uuid(self.rng)),
             user_id=user or self.pick_user(),
             currency_pair=spec.pair,
-            side=self.rng.choice(("BUY", "SELL")),
+            side=self.rng.choice(get_args(Side)),
             rate=to_decimal(rate, spec.decimals),
             base_amount=to_decimal(amount, 2),
             event_timestamp=now,

@@ -16,9 +16,9 @@ class DryRunSink:
         print(f"[ground truth] {ep.anomaly_type:<14} {ep.scope}:{ep.scope_key} {ep.params}")
 
     def send_trade(self, trade: Trade) -> None:
-        self.value_bytes += REGISTRY_HEADER_BYTES + len(encode(trade.to_avro(), TRADE_SCHEMA))
+        self.value_bytes += REGISTRY_HEADER_BYTES + len(encode(trade.model_dump(), TRADE_SCHEMA))
         if self.sent < 3:
-            print(f"[sample trade] {trade.to_avro()}  quote_amount={trade.quote_amount}")
+            print(f"[sample trade] {trade.model_dump()}  quote_amount={trade.quote_amount}")
         self.sent += 1
 
     def close(self, elapsed: float) -> None:

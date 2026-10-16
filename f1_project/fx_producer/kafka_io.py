@@ -63,7 +63,7 @@ class FxProducer:
         self.producer.poll(0)
 
     def send_trade(self, trade: Trade) -> None:
-        value = self.trade_ser(trade.to_avro(), SerializationContext(TRADES_TOPIC, MessageField.VALUE))
+        value = self.trade_ser(trade.model_dump(), SerializationContext(TRADES_TOPIC, MessageField.VALUE))
         # Record key = trade_id: even spread + duplicates land in the same partition.
         key = self.key_ser(trade.trade_id, SerializationContext(TRADES_TOPIC, MessageField.KEY))
         self.sent += 1
@@ -72,7 +72,7 @@ class FxProducer:
         self._produce(TRADES_TOPIC, key, value)
 
     def send_episode(self, ep: AnomalyEpisode) -> None:
-        value = self.episode_ser(ep.to_avro(), SerializationContext(GROUND_TRUTH_TOPIC, MessageField.VALUE))
+        value = self.episode_ser(ep.model_dump(), SerializationContext(GROUND_TRUTH_TOPIC, MessageField.VALUE))
         key = self.key_ser(ep.episode_id, SerializationContext(GROUND_TRUTH_TOPIC, MessageField.KEY))
         self._produce(GROUND_TRUTH_TOPIC, key, value)
 

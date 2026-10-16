@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import random
-from dataclasses import replace
 from datetime import timedelta
 
 from .config import SimConfig
@@ -21,7 +20,7 @@ def apply_chaos(trades: list[Trade], cfg: SimConfig, rng: random.Random) -> list
     for t in trades:
         if rng.random() < cfg.late_pct:
             delay = rng.uniform(5, 25) if rng.random() < 0.5 else rng.uniform(40, 120)
-            t = replace(t, event_timestamp=t.event_timestamp - timedelta(seconds=delay))
+            t = t.model_copy(update={"event_timestamp": t.event_timestamp - timedelta(seconds=delay)})
         out.append(t)
         if rng.random() < cfg.duplicate_pct:
             out.append(t)
