@@ -32,10 +32,9 @@ class EventSink(Protocol):
 
 
 def parse_args(argv: list[str] | None = None) -> tuple[SimConfig, argparse.Namespace]:
-    """One flag per SimConfig field, typed from its annotation (`int | None` -> int)."""
     p = argparse.ArgumentParser(description="F1 synthetic FX trade producer (Phase 1)")
     for name, field in SimConfig.model_fields.items():
-        typ = next(t for t in get_args(field.annotation) or (field.annotation,) if t is not type(None))
+        typ = (get_args(field.annotation) or [field.annotation])[0]  # `int | None` -> int
         p.add_argument("--" + name.replace("_", "-"), type=typ, default=field.default, help=f"default: {field.default}")
     p.add_argument("--dry-run", action="store_true", help="don't connect to Kafka; print samples and Avro sizes")
     args = p.parse_args(argv)
