@@ -42,26 +42,29 @@ Kubernetes (scaling is argued on paper), a polished frontend.
 
 ## 3. Architecture
 
+Decided in [ADR-001](../adr/ADR-001-overall-architecture.md): **Kappa for alerts, Lambda for analytics.**
+
 ```mermaid
 flowchart LR
-  P["FX producer<br>(synthetic, Avro)"] -->|fx.trades| RP["Redpanda<br>+ Schema Registry"]
-  P -->|fx.trades.ground_truth| RP
-  RP --> SP["Spark Structured Streaming<br>windows · watermarks · z-score"]
-  SP -->|"Kappa: alerts"| AT["fx.alerts"]
-  SP -->|"raw + speed aggregates<br>(foreachBatch → DuckDB)"| DL["DuckLake<br>Postgres catalog · Parquet on Garage"]
-  DL --> BJ["Batch layer<br>DuckDB SQL (scheduled)"]
-  BJ --> DL
-  DL --> SV["Serving views (DuckDB)<br>batch ∪ speed"]
-  SV --> SS["Superset"]
-  SV --> MCP["MCP server (optional)"]
-  RP -.->|"replay = backtest"| SP
+  APP["trade-app<br>(simulator in the build)"] -->|event_topic = fx.trades| MQ["Redpanda<br>+ Schema Registry"]
+  APP -.->|"production design:<br>DB + transactional outbox"| DB[("DB")]
+  MQ --> DET["detector-worker<br>(Spark, windows · watermarks)"]
+  DET -->|anomaly_topic = fx.alerts| MQ
+  MQ --> NOT["notifier-worker"] --> AL["alert notification"]
+  MQ -->|sink: dedupe on trade_id| RAW["raw_event + anomaly_event<br>(DuckLake)"]
+  RAW --> BATCH["batch scheduled model<br>(exact, incl. late trades)"]
+  RAW --> SPEED["speed view<br>(incremental micro-batch)"]
+  BATCH --> SB["serving batch"] --> BI["BI reports / analysts"]
+  SPEED --> SS["serving speed"] --> RT["freshness dashboards / real-time app"]
+  MQ -.->|"replay = backtest"| DET
 ```
 
-- **Alert path (Kappa):** one streaming job; rule changes are backtested by replaying the log.
-- **Analytics path (Lambda):** speed-layer aggregates + a batch job that recomputes exact results
-  (including late events); serving views union both.
-- **Two kinds of truth:** fired alerts (immutable record of decisions) vs ground-truth episodes
-  (answer key). Reconciliation measures detector quality and Lambda drift.
+- **Alert path (Kappa):** `detector-worker` reads `event_topic`, writes `anomaly_topic`; `notifier-worker` sends alerts. Rule changes are backtested by replaying the log.
+- **Analytics path (Lambda):** raw trades and fired alerts land as an immutable record; a scheduled batch model recomputes exact results (late trades included); a speed view gives fresh, approximate results.
+- **Serving by use case:** reports read batch (exact, stale until the next run); freshness dashboards and the real-time app read speed (fresh, approximate).
+- **Deciding axis:** timeliness (alerts) vs completeness (reports).
+- **Production note:** trades originate in an OLTP service and reach the log via a transactional outbox (known improvement). The build is log-first, so it has no dual write.
+- **Platform layer:** storage (Garage/S3) → open table format (DuckLake) → query engine (DuckDB).
 
 ## 4. Stack
 

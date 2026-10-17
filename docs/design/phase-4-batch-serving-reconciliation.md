@@ -6,7 +6,7 @@
 Build the Lambda analytics path and grade the detector against ground truth.
 
 ## Questions to answer
-- Serving views: how batch results (up to last run) and speed results (since) are combined.
+- Serving by use case (ADR-001): reports read batch, freshness dashboards read speed. How to label freshness, and how big the speed-vs-batch gap gets.
 - Fired alerts vs batch labels vs ground truth — what each one means.
 - Precision / recall using the Phase 1 matching rule; how much late data the stream missed.
 - Backtesting a rule change by replaying history (Kappa property).

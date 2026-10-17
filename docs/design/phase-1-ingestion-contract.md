@@ -1,6 +1,6 @@
 # Phase 1 — Ingestion Contract & Synthetic Producer (Week 1)
 
-**Status:** contract + sizing decided, producer built · ADR-001 / ADR-002 to write
+**Status:** contract + sizing decided, producer built · ADR-001 accepted · ADR-002 to write
 **7-step method coverage:** steps 1–3 (requirements, estimates, data contract)
 
 ## 1. Goal
@@ -14,7 +14,7 @@ that emits realistic trades **plus an answer key** (ground truth) so later phase
 - [x] Ground-truth model that supports point and collective anomalies
 - [x] Sizing: five numbers, each with the decision it drives
 - [x] Producer running against Redpanda; design assumptions verifiable (`make verify`)
-- [ ] ADR-001 (overall architecture) written — owner: Kids
+- [x] ADR-001 (overall architecture) accepted — owner: Kids
 - [ ] ADR-002 (broker + schema) written — owner: Kids
 
 ## 2. Trade event contract — `schemas/fx_trade.avsc` (topic `fx.trades`)

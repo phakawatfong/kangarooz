@@ -11,7 +11,7 @@ The point is **architecture judgment**: every component is chosen deliberately a
 
 | Phase | Week | Scope | Status |
 |---|---|---|---|
-| 1 | Wk 1 | Ingestion contract + synthetic producer | ✅ built (ADR-001/002 to write) |
+| 1 | Wk 1 | Ingestion contract + synthetic producer | ✅ built · ADR-001 accepted · ADR-002 to write |
 | 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | ⬜ |
 | 3 | Wk 3 | Stream processing + alerts (Spark, Kappa) | ⬜ |
 | 4 | Wk 4 | Batch layer, serving, reconciliation (Lambda) | ⬜ |
