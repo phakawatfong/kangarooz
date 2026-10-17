@@ -10,6 +10,7 @@ dependencies = [
     "duckdb==1.5.6",
     "pyarrow>=22",
     "pydantic>=2.9",
+    "pyspark==4.2.0",
 ]
 
 [dependency-groups]

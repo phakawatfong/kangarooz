@@ -5,3 +5,5 @@ __pycache__/
 .DS_Store
 
 .env
+# Spark streaming checkpoints (paired with the lake: make reset wipes both)
+.checkpoints/
