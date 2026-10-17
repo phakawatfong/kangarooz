@@ -5,7 +5,7 @@ One file per decision, written with the 5-step template below. The magic is in s
 | ADR | Decision | Phase | Status |
 |---|---|---|---|
 | [001](ADR-001-overall-architecture.md) | Overall architecture: Kappa alerts + Lambda analytics | 1 | Accepted |
-| [002](ADR-002-broker-and-schema.md) | Broker + schema: Redpanda vs Kafka, Avro + Schema Registry | 1 | To write |
+| [002](ADR-002-broker-and-schema.md) | Broker + schema: Redpanda vs Kafka, Avro + Schema Registry | 1 | Accepted |
 | 003 | Table format: DuckLake vs Iceberg vs Delta | 2 | — |
 | 004 | Object storage: Garage vs SeaweedFS vs local FS | 2 | — |
 | 005 | Stream engine: Spark vs Flink vs Quix Streams | 3 | — |

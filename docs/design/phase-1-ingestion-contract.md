@@ -1,6 +1,6 @@
 # Phase 1 — Ingestion Contract & Synthetic Producer (Week 1)
 
-**Status:** contract + sizing decided, producer built · ADR-001 accepted · ADR-002 to write
+**Status:** contract + sizing decided, producer built · ADR-001 and ADR-002 accepted
 **7-step method coverage:** steps 1–3 (requirements, estimates, data contract)
 
 ## 1. Goal
@@ -15,7 +15,7 @@ that emits realistic trades **plus an answer key** (ground truth) so later phase
 - [x] Sizing: five numbers, each with the decision it drives
 - [x] Producer running against Redpanda; design assumptions verifiable (`make verify`)
 - [x] ADR-001 (overall architecture) accepted — owner: Kids
-- [ ] ADR-002 (broker + schema) written — owner: Kids
+- [x] ADR-002 (broker + schema) accepted — owner: Kids
 
 ## 2. Trade event contract — `schemas/fx_trade.avsc` (topic `fx.trades`)
 
@@ -148,5 +148,6 @@ Acceptable for grading data in a simulator; a real system would use one system o
 
 ## 9. Open items
 
-- ADR-001 and ADR-002 (owner: Kids) — see `docs/adr/`.
+- ADR-001 and ADR-002 accepted — see `docs/adr/`.
+- Remaining Week 1: DDIA Ch 1 + Ch 4 reading; 2-minute platform walkthrough mock.
 - Phase 2 consumes `fx.trades` into DuckLake; `etl_loaded_at` is added there.
