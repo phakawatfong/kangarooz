@@ -2,6 +2,8 @@
 
 One file per decision, written with the 5-step template below. The magic is in steps 4 and 5.
 
+**Constraint first:** write step 1 (the constraints and numbers that apply, from the [constraint trace](../design/00-overview.md#3-constraints--decisions-trace)) *before* listing any options, then let the constraints filter the alternatives.
+
 | ADR | Decision | Phase | Status |
 |---|---|---|---|
 | [001](ADR-001-overall-architecture.md) | Overall architecture: Kappa alerts + Lambda analytics | 1 | Accepted |
