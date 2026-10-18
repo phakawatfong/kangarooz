@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS lake.bronze_fx_trade ({TRADE_DDL},
 CREATE TABLE IF NOT EXISTS lake.silver_fx_trade ({TRADE_DDL}, etl_loaded_at TIMESTAMPTZ NOT NULL);
 CREATE TABLE IF NOT EXISTS lake.ingest_batch (
     batch_id BIGINT NOT NULL, bronze_rows BIGINT NOT NULL, committed_at TIMESTAMPTZ NOT NULL);
+ALTER TABLE lake.bronze_fx_trade SET PARTITIONED BY (year(etl_loaded_at), month(etl_loaded_at), day(etl_loaded_at));
+ALTER TABLE lake.silver_fx_trade SET PARTITIONED BY (year(event_timestamp), month(event_timestamp), day(event_timestamp));
 """
 
 # `incoming` is the decoded micro-batch, registered as a view for the duration of write_batch.
@@ -58,6 +60,7 @@ def connect(lake_config: LakeConfig) -> duckdb.DuckDBPyConnection:
     """A DuckDB connection with the lake attached as `lake`."""
     log.debug("attaching lake: %s", lake_config.describe())
     db = duckdb.connect()
+    db.execute("SET TimeZone = 'UTC'")  # partition days follow the session time zone; the lake's days are UTC
     if lake_config.s3_key_id:
         options = {"KEY_ID": lake_config.s3_key_id, "SECRET": lake_config.s3_secret, "REGION": lake_config.s3_region,
                    "ENDPOINT": lake_config.s3_endpoint, "URL_STYLE": lake_config.s3_url_style}

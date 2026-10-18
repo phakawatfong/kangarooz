@@ -9,7 +9,7 @@ import pytest
 
 from contract.avro_codec import TRADE_SCHEMA, encode, registry_header
 from fx_producer.domain import Trade
-from lakehouse import lake
+from lakehouse import compact, lake
 from lakehouse.config import LakeConfig
 from lakehouse.lake import connect, create_tables, decode_batch, write_batch
 
@@ -101,3 +101,31 @@ def test_lake_config_names_the_missing_variable(monkeypatch):
     monkeypatch.delenv("F1_LAKE_CATALOG", raising=False)
     with pytest.raises(KeyError, match="F1_LAKE_CATALOG"):
         LakeConfig.from_env()
+
+
+def test_partitions_are_utc_days(tmp_path):
+    db = _lake(tmp_path, limit=0)
+    write_batch(db, 0, decode_batch(_kafka([_trade(1, late_s=-11 * 3600)]), SCHEMA_ID))  # 2026-10-17 20:00 UTC
+    silver_files = [path.as_posix() for path in (tmp_path / "data").rglob("*.parquet") if "silver" in path.as_posix()]
+    assert len(silver_files) == 1 and "/year=2026/month=10/day=17/" in silver_files[0]
+
+
+def test_compaction_merges_small_files_and_deletes_replaced_ones(tmp_path):
+    db = _lake(tmp_path, limit=0)
+    for batch_id in range(3):
+        write_batch(db, batch_id, decode_batch(_kafka([_trade(batch_id)], first_offset=batch_id), SCHEMA_ID))
+    assert compact.file_counts(db) == {"bronze_fx_trade": 3, "silver_fx_trade": 3, "ingest_batch": 3}
+
+    compact.compact(db, keep=timedelta(0))
+    assert compact.file_counts(db) == {"bronze_fx_trade": 1, "silver_fx_trade": 1, "ingest_batch": 1}
+    assert _parquet_files(tmp_path) == 3  # the 9 replaced files are gone from storage
+    assert _counts(db) == (3, 3, 3)
+
+
+def test_compaction_leaves_files_at_target_size_alone(tmp_path, monkeypatch):
+    db = _lake(tmp_path, limit=0)
+    for batch_id in range(3):
+        write_batch(db, batch_id, decode_batch(_kafka([_trade(batch_id)], first_offset=batch_id), SCHEMA_ID))
+    monkeypatch.setattr(compact, "TARGET_FILE_BYTES", 1)  # every file is already "big"
+    compact.compact(db, keep=timedelta(0))
+    assert compact.file_counts(db) == {"bronze_fx_trade": 3, "silver_fx_trade": 3, "ingest_batch": 3}

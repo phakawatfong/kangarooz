@@ -1,7 +1,7 @@
 # F1 commands. Run from the repo root.
 PY := cd app && uv run --env-file ../.env
 
-.PHONY: help setup up down reset topics register produce produce-dry verify stream lake-verify lake-ui test console logs
+.PHONY: help setup up down reset topics register produce produce-dry verify stream lake-verify lake-ui compact test console logs
 
 help:            ## list commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -45,6 +45,9 @@ stream:          ## Spark sink: fx.trades -> DuckLake bronze + silver (Ctrl+C to
 
 lake-verify:     ## check the lake against Kafka: counts, dedupe, late events, small files
 	$(PY) python -m lakehouse.verify
+
+compact:         ## merge small lake files + delete replaced ones (override: make compact ARGS="--keep-hours 0")
+	$(PY) python -m lakehouse.compact $(ARGS)
 
 lake-ui:          ## DuckDB UI on the lake at http://localhost:4213 (Spark UI: :4040, Console: :8080)
 	$(PY) python -m lakehouse.ui

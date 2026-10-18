@@ -12,7 +12,7 @@ The point is **architecture judgment**: every component is chosen deliberately a
 | Phase | Week | Scope | Status |
 |---|---|---|---|
 | 1 | Wk 1 | Ingestion contract + synthetic producer | ✅ built · ADR-001 + ADR-002 accepted |
-| 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | 🟡 ADR-003 + ADR-004 accepted · spike next |
+| 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | 🟡 spike done · mock answers pending |
 | 3 | Wk 3 | Stream processing + alerts (Spark, Kappa) | ⬜ |
 | 4 | Wk 4 | Batch layer, serving, reconciliation (Lambda) | ⬜ |
 | 5 | Wk 5 | Partitioning, failure modes, OpenTofu | ⬜ |
@@ -45,6 +45,7 @@ make stream       # Spark: fx.trades -> DuckLake bronze + silver, one transactio
 make produce      # in a second terminal
 make lake-verify  # bronze = Kafka offsets, silver deduped, late trades landed, Parquet file count
 make lake-ui      # DuckDB UI on the lake, http://localhost:4213
+make compact      # merge small Parquet files, delete replaced ones (schedule it, e.g. hourly)
 ```
 
 To watch it live, use three pages. Redpanda Console (`make console`, :8080) shows messages arriving in `fx.trades`. Spark UI (http://localhost:4040, Structured Streaming tab) shows input rate and batch duration while `make stream` runs. `make lake-ui` shows the lake tables.
