@@ -100,7 +100,7 @@ compact varint/byte encodings; `user_id` is short), the key larger (UUID, not 20
 Created by the `init-topics` one-shot service in `docker-compose.yml`. **Phase 5 moves topic
 definitions into OpenTofu.**
 
-## 7. Producer design (`f1_project/fx_producer/`)
+## 7. Producer design (`app/fx_producer/`)
 
 | Module | Responsibility |
 |---|---|

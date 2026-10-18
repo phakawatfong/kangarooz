@@ -44,7 +44,10 @@ make register
 make stream       # Spark: fx.trades -> DuckLake bronze + silver, one transaction per 5 s batch
 make produce      # in a second terminal
 make lake-verify  # bronze = Kafka offsets, silver deduped, late trades landed, Parquet file count
+make lake-ui      # DuckDB UI on the lake, http://localhost:4213
 ```
+
+To watch it live, use three pages. Redpanda Console (`make console`, :8080) shows messages arriving in `fx.trades`. Spark UI (http://localhost:4040, Structured Streaming tab) shows input rate and batch duration while `make stream` runs. `make lake-ui` shows the lake tables.
 
 `make reset` deletes the lake together with the Spark checkpoint. They only make sense as a pair.
 
@@ -72,7 +75,7 @@ F1_LAKE_CATALOG="postgres:host=localhost port=15432 dbname=ducklake user=f1 pass
 docker-compose.yml        Redpanda (Kafka API + Schema Registry) + Console + topic init, Postgres, Garage
 garage.toml               Garage single-node config (secrets come from .env)
 schemas/                  Avro contracts (source of truth): fx_trade, anomaly_episode
-f1_project/               Python (uv) — fx_producer (Phase 1) and lakehouse (Phase 2) packages + tests
+app/                      Python (uv) — fx_producer (Phase 1) and lakehouse (Phase 2) packages + tests
 docs/design/              Design docs, one per phase
 docs/adr/                 Architecture Decision Records
 ```

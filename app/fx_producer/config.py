@@ -8,7 +8,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-# Repo root = .../f1_project (outer). This file lives in f1_project/f1_project/fx_producer/.
+# Repo root holds schemas/. This file lives in <repo>/app/fx_producer/.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_DIR = Path(os.getenv("F1_SCHEMA_DIR", REPO_ROOT / "schemas"))
 

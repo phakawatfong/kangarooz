@@ -1,9 +1,9 @@
 # F1 commands. Run from the repo root.
-PY := cd f1_project && uv run --env-file ../.env
+PY := cd app && uv run --env-file ../.env
 # Spark comes from the pinned pyspark wheel; a machine-wide SPARK_HOME would load another version's jars.
 unexport SPARK_HOME
 
-.PHONY: help setup up down reset topics register produce produce-dry verify stream lake-verify test console logs
+.PHONY: help setup up down reset topics register produce produce-dry verify stream lake-verify lake-ui test console logs
 
 help:            ## list commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -16,7 +16,7 @@ setup:           ## check Java 17+, install Python deps, prefetch the Spark jar 
 	if [ -z "$$v" ] || [ "$$v" -lt 17 ]; then \
 	  echo "Spark needs Java 17+ (found: $${v:-none}). With SDKMAN: sdk env install (reads .sdkmanrc)."; exit 1; fi; \
 	echo "java $$v ok ($$java)"
-	cd f1_project && uv sync
+	cd app && uv sync
 	$(PY) python -m lakehouse.prefetch
 
 up:              ## start Redpanda, Console, Postgres, Garage and create topics
@@ -28,7 +28,7 @@ down:            ## stop the stack (keeps data)
 
 reset:           ## stop and DELETE all data (Redpanda, lake catalog + files, Spark checkpoint)
 	docker compose down -v
-	rm -rf f1_project/.checkpoints
+	rm -rf app/.checkpoints
 
 register:        ## register Avro schemas + BACKWARD compatibility
 	$(PY) python -m fx_producer.registry
@@ -47,6 +47,9 @@ stream:          ## Spark sink: fx.trades -> DuckLake bronze + silver (Ctrl+C to
 
 lake-verify:     ## check the lake against Kafka: counts, dedupe, late events, small files
 	$(PY) python -m lakehouse.verify
+
+lake-ui:          ## DuckDB UI on the lake at http://localhost:4213 (Spark UI: :4040, Console: :8080)
+	$(PY) python -m lakehouse.ui
 
 test:            ## unit tests (no broker needed)
 	$(PY) pytest -q
