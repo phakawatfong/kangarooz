@@ -1,4 +1,5 @@
-# Phase 1 local stack: one Redpanda broker (Kafka API + built-in Schema Registry) + Redpanda Console.
+# Local stack. Phase 1: one Redpanda broker (Kafka API + built-in Schema Registry) + Redpanda Console.
+# Phase 2: Postgres (DuckLake catalog) + Garage (S3-compatible object storage for the Parquet files).
 # Single node, replication factor 1 = laptop dev profile (production design assumes RF=3).
 name: f1
 
@@ -82,5 +83,46 @@ services:
     ports:
       - "8080:8080"
 
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: f1-postgres
+    environment:
+      POSTGRES_DB: ducklake
+      POSTGRES_USER: f1
+      POSTGRES_PASSWORD: ${F1_PG_PASSWORD}
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U f1 -d ducklake"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  garage:
+    image: dxflrs/garage:${GARAGE_VERSION}
+    container_name: f1-garage
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    environment:
+      GARAGE_RPC_SECRET: ${F1_GARAGE_RPC_SECRET}
+      GARAGE_DEFAULT_ACCESS_KEY: ${F1_S3_KEY_ID}
+      GARAGE_DEFAULT_SECRET_KEY: ${F1_S3_SECRET}
+      GARAGE_DEFAULT_BUCKET: f1-lake
+    ports:
+      - "3900:3900"     # S3 API (host)
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   redpanda-data:
+  postgres-data:
+  garage-meta:
+  garage-data:
