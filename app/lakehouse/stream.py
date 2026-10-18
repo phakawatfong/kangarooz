@@ -7,24 +7,32 @@ Spark owns the Kafka offsets (checkpoint); the DuckLake ledger makes a replayed 
 
 from __future__ import annotations
 
+import logging
+import os
 import time
 from pathlib import Path
 
+import duckdb
 import pyspark
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
-from fx_producer.adapters.avro_local import schema_text
-from fx_producer.config import TRADE_SCHEMA, TRADES_TOPIC, Connection
+from contract.avro_codec import TRADE_SCHEMA, schema_text
+from contract.kafka import TRADES_TOPIC, KafkaConfig, value_subject
+from logs import setup_logging
 
-from .lake import LakeConfig, connect, create_tables, decode_batch, write_batch
+from .config import LakeConfig
+from .lake import connect, create_tables, decode_batch, write_batch
 
 CHECKPOINT = Path(__file__).resolve().parents[1] / ".checkpoints" / "fx_trades"
 KAFKA_PACKAGE = f"org.apache.spark:spark-sql-kafka-0-10_2.13:{pyspark.__version__}"
 FLUSH_EVERY = 60  # batches (~5 min at the 5 s trigger): inlined rows move from Postgres to Parquet
 
+log = logging.getLogger(__name__)
+
 
 def spark_session() -> SparkSession:
+    os.environ.pop("SPARK_HOME", None)  # use the pinned pyspark's own Spark, not a machine-wide install's jars
     return (SparkSession.builder.master("local[*]").appName("f1-lake-sink")
             .config("spark.jars.packages", KAFKA_PACKAGE)
             .config("spark.sql.session.timeZone", "UTC")
@@ -33,11 +41,20 @@ def spark_session() -> SparkSession:
             .getOrCreate())
 
 
-def check_checkpoint_matches_lake(con) -> None:
+def trade_schema_id(kafka_config: KafkaConfig) -> int:
+    """The registry id of schemas/fx_trade.avsc; fails if that exact schema was never registered."""
+    registry = SchemaRegistryClient({"url": kafka_config.schema_registry_url})
+    return registry.lookup_schema(value_subject(TRADES_TOPIC), Schema(schema_text(TRADE_SCHEMA), "AVRO"),
+                                  normalize_schemas=True).schema_id
+
+
+def check_checkpoint_matches_lake(db: duckdb.DuckDBPyConnection) -> None:
     """Batch ids only mean something next to the checkpoint that produced them."""
-    landed = con.execute("SELECT count(*) FROM lake.ingest_batch").fetchone()[0]
+    landed = db.execute("SELECT count(*) FROM lake.ingest_batch").fetchone()[0]
     commits = CHECKPOINT / "commits"
     spark_committed = commits.exists() and any(commits.iterdir())
+    log.debug("checkpoint %s: exists=%s spark_committed=%s; lake ledger has %d batches",
+              CHECKPOINT, CHECKPOINT.exists(), spark_committed, landed)
     if landed and not CHECKPOINT.exists():
         raise SystemExit(f"lake holds {landed} batches but {CHECKPOINT} is gone: new batch ids would be "
                          "skipped as replays. Run `make reset` to start both from scratch.")
@@ -46,34 +63,41 @@ def check_checkpoint_matches_lake(con) -> None:
 
 
 def main() -> None:
-    conn = Connection.from_env()
-    sr = SchemaRegistryClient({"url": conn.schema_registry_url})
-    schema_id = sr.lookup_schema(f"{TRADES_TOPIC}-value", Schema(schema_text(TRADE_SCHEMA), "AVRO"),
-                                 normalize_schemas=True).schema_id
-    con = connect(LakeConfig.from_env())
-    create_tables(con)
-    check_checkpoint_matches_lake(con)
+    setup_logging()
+    kafka_config = KafkaConfig.from_env()
+    log.debug("kafka: %s", kafka_config)
+    schema_id = trade_schema_id(kafka_config)
+    db = connect(LakeConfig.from_env())
+    create_tables(db)
+    check_checkpoint_matches_lake(db)
 
-    def handle(df, batch_id: int) -> None:
-        t0 = time.monotonic()
-        kafka = df.selectExpr("value", "partition AS kafka_partition", "offset AS kafka_offset",
-                              "timestamp AS kafka_timestamp").toArrow()
-        landed = write_batch(con, batch_id, decode_batch(kafka, schema_id))
+    def land_batch(batch: DataFrame, batch_id: int) -> None:
+        started = time.monotonic()
+        kafka_rows = batch.selectExpr("value", "partition AS kafka_partition", "offset AS kafka_offset",
+                                      "timestamp AS kafka_timestamp").toArrow()
+        fetched = time.monotonic()
+        trades = decode_batch(kafka_rows, schema_id)
+        decoded = time.monotonic()
+        landed = write_batch(db, batch_id, trades)
         if landed and batch_id % FLUSH_EVERY == 0:
-            con.execute("CALL ducklake_flush_inlined_data('lake')")
+            log.debug("batch %d: flushing inlined rows to Parquet", batch_id)
+            db.execute("CALL ducklake_flush_inlined_data('lake')")
+        finished = time.monotonic()
+        log.debug("batch %d timings: spark->arrow %.0f ms, decode %.0f ms, lake write %.0f ms", batch_id,
+                  (fetched - started) * 1000, (decoded - fetched) * 1000, (finished - decoded) * 1000)
         status = "landed" if landed else "replay, skipped"
-        print(f"batch {batch_id}: {kafka.num_rows} rows {status} in {(time.monotonic() - t0) * 1000:.0f} ms",
+        print(f"batch {batch_id}: {kafka_rows.num_rows} rows {status} in {(finished - started) * 1000:.0f} ms",
               flush=True)
 
     print(f"streaming {TRADES_TOPIC} (schema id {schema_id}) -> DuckLake; Ctrl+C to stop", flush=True)
     query = (spark_session().readStream.format("kafka")
-             .option("kafka.bootstrap.servers", conn.bootstrap_servers)
+             .option("kafka.bootstrap.servers", kafka_config.bootstrap_servers)
              .option("subscribe", TRADES_TOPIC)
              .option("startingOffsets", "earliest")
              .option("maxOffsetsPerTrigger", 50_000)
              .option("failOnDataLoss", "true")
              .load()
-             .writeStream.foreachBatch(handle)
+             .writeStream.foreachBatch(land_batch)
              .trigger(processingTime="5 seconds")
              .option("checkpointLocation", str(CHECKPOINT))
              .start())

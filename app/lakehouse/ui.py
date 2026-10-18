@@ -5,12 +5,16 @@
 
 import threading
 
-from .lake import LakeConfig, connect
+from logs import setup_logging
+
+from .config import LakeConfig
+from .lake import connect
 
 
 def main() -> None:
-    con = connect(LakeConfig.from_env())
-    print(con.execute("CALL start_ui()").fetchone()[0], "(Ctrl+C to stop)", flush=True)
+    setup_logging()
+    db = connect(LakeConfig.from_env())
+    print(db.execute("CALL start_ui()").fetchone()[0], "(Ctrl+C to stop)", flush=True)
     threading.Event().wait()
 
 

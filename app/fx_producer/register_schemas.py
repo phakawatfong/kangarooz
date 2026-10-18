@@ -1,31 +1,29 @@
 """Register the Avro contracts and set BACKWARD compatibility.
 
-    uv run python -m fx_producer.registry
-
-Subjects follow TopicNameStrategy: <topic>-value.
+    uv run python -m fx_producer.register_schemas
 """
 
 from __future__ import annotations
 
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 
-from .adapters.avro_local import schema_text
-from .config import EPISODE_SCHEMA, GROUND_TRUTH_TOPIC, TRADE_SCHEMA, TRADES_TOPIC, Connection
+from contract.avro_codec import EPISODE_SCHEMA, TRADE_SCHEMA, schema_text
+from contract.kafka import GROUND_TRUTH_TOPIC, TRADES_TOPIC, KafkaConfig, value_subject
 
-SUBJECTS = {
-    f"{TRADES_TOPIC}-value": TRADE_SCHEMA,
-    f"{GROUND_TRUTH_TOPIC}-value": EPISODE_SCHEMA,
+SCHEMA_FILE_BY_SUBJECT = {
+    value_subject(TRADES_TOPIC): TRADE_SCHEMA,
+    value_subject(GROUND_TRUTH_TOPIC): EPISODE_SCHEMA,
 }
 
 
 def main() -> None:
-    conn = Connection.from_env()
-    sr = SchemaRegistryClient({"url": conn.schema_registry_url})
-    for subject, filename in SUBJECTS.items():
-        schema_id = sr.register_schema(subject, Schema(schema_text(filename), "AVRO"), normalize_schemas=True)
+    kafka_config = KafkaConfig.from_env()
+    registry = SchemaRegistryClient({"url": kafka_config.schema_registry_url})
+    for subject, filename in SCHEMA_FILE_BY_SUBJECT.items():
+        schema_id = registry.register_schema(subject, Schema(schema_text(filename), "AVRO"), normalize_schemas=True)
         # BACKWARD: new readers can read old data. Note the trap discussed in ADR-002:
         # adding an enum symbol passes BACKWARD but can break LAGGING (old) consumers.
-        sr.set_compatibility(subject_name=subject, level="BACKWARD")
+        registry.set_compatibility(subject_name=subject, level="BACKWARD")
         print(f"registered {subject:<36} id={schema_id}  compatibility=BACKWARD  ({filename})")
 
 

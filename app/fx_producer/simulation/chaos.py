@@ -15,13 +15,13 @@ from ..config import SimConfig
 from ..domain import Trade
 
 
-def apply_chaos(trades: list[Trade], cfg: SimConfig, rng: random.Random) -> list[Trade]:
+def apply_chaos(trades: list[Trade], sim_config: SimConfig, rng: random.Random) -> list[Trade]:
     out: list[Trade] = []
-    for t in trades:
-        if rng.random() < cfg.late_pct:
+    for trade in trades:
+        if rng.random() < sim_config.late_pct:
             delay = rng.uniform(5, 25) if rng.random() < 0.5 else rng.uniform(40, 120)
-            t = t.model_copy(update={"event_timestamp": t.event_timestamp - timedelta(seconds=delay)})
-        out.append(t)
-        if rng.random() < cfg.duplicate_pct:
-            out.append(t)
+            trade = trade.model_copy(update={"event_timestamp": trade.event_timestamp - timedelta(seconds=delay)})
+        out.append(trade)
+        if rng.random() < sim_config.duplicate_pct:
+            out.append(trade)
     return out

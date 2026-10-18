@@ -1,21 +1,10 @@
-"""Static configuration: currency pairs, defaults, connection settings."""
+"""Simulator settings: currency pairs and the knobs behind the producer's CLI flags."""
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
-
-# Repo root holds schemas/. This file lives in <repo>/app/fx_producer/.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_DIR = Path(os.getenv("F1_SCHEMA_DIR", REPO_ROOT / "schemas"))
-
-TRADES_TOPIC = "fx.trades"
-GROUND_TRUTH_TOPIC = "fx.trades.ground_truth"
-TRADE_SCHEMA = "fx_trade.avsc"
-EPISODE_SCHEMA = "anomaly_episode.avsc"
 
 
 @dataclass(frozen=True)
@@ -41,20 +30,6 @@ PAIRS: tuple[PairSpec, ...] = (
     PairSpec("GBP/USD", 1.3000, 0.10, 5),
     PairSpec("AUD/USD", 0.6600, 0.08, 5),
 )
-
-
-class Connection(BaseModel):
-    """Broker + registry endpoints. Defaults = the local docker-compose stack."""
-
-    model_config = ConfigDict(frozen=True)
-
-    bootstrap_servers: str = "localhost:19092"
-    schema_registry_url: str = "http://localhost:18081"
-
-    @classmethod
-    def from_env(cls) -> Connection:
-        env = {"bootstrap_servers": "F1_BOOTSTRAP", "schema_registry_url": "F1_SCHEMA_REGISTRY"}
-        return cls(**{field: os.environ[var] for field, var in env.items() if var in os.environ})
 
 
 class SimConfig(BaseModel):

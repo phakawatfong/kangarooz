@@ -1,1 +1,1 @@
-"""Output adapters: Kafka + Schema Registry, dry-run console, local Avro."""
+"""Where the producer's output goes: Kafka + Schema Registry, or the dry-run console."""

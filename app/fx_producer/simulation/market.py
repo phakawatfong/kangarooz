@@ -17,23 +17,23 @@ def rng_uuid(rng: random.Random) -> uuid.UUID:
 
 
 class MarketSimulator:
-    def __init__(self, cfg: SimConfig, rng: random.Random):
-        self.cfg = cfg
+    def __init__(self, sim_config: SimConfig, rng: random.Random):
+        self.sim_config = sim_config
         self.rng = rng
         self.mids = {p.pair: p.mid for p in PAIRS}
         self._pair_list = list(PAIRS)
         self._pair_weights = [p.weight for p in PAIRS]
         # Zipf-like user activity: a few "whales" trade a lot. They are NOT anomalies,
         # which is exactly what makes naive per-user volume rules produce false positives.
-        self.users = [f"U{i:05d}" for i in range(cfg.n_users)]
-        self._user_weights = [1.0 / (i + 1) ** 1.1 for i in range(cfg.n_users)]
+        self.users = [f"U{i:05d}" for i in range(sim_config.n_users)]
+        self._user_weights = [1.0 / (i + 1) ** 1.1 for i in range(sim_config.n_users)]
         # Log-normal sizes with the configured mean.
         self._amount_sigma = 1.0
-        self._amount_mu = math.log(cfg.mean_base_amount) - self._amount_sigma**2 / 2
+        self._amount_mu = math.log(sim_config.mean_base_amount) - self._amount_sigma**2 / 2
 
     def advance(self, dt: float) -> None:
         """Move every mid one geometric-random-walk step of dt seconds."""
-        step = self.cfg.volatility_per_sec * math.sqrt(dt)
+        step = self.sim_config.volatility_per_sec * math.sqrt(dt)
         for pair, mid in self.mids.items():
             self.mids[pair] = mid * math.exp(step * self.rng.gauss(0.0, 1.0))
 
