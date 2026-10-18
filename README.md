@@ -12,7 +12,7 @@ The point is **architecture judgment**: every component is chosen deliberately a
 | Phase | Week | Scope | Status |
 |---|---|---|---|
 | 1 | Wk 1 | Ingestion contract + synthetic producer | ✅ built · ADR-001 + ADR-002 accepted |
-| 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | ⬜ |
+| 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | 🟡 ADR-003 + ADR-004 accepted · spike next |
 | 3 | Wk 3 | Stream processing + alerts (Spark, Kappa) | ⬜ |
 | 4 | Wk 4 | Batch layer, serving, reconciliation (Lambda) | ⬜ |
 | 5 | Wk 5 | Partitioning, failure modes, OpenTofu | ⬜ |
@@ -33,12 +33,46 @@ make test        # unit tests, no broker needed
 
 Tune the producer: `make produce ARGS="--rate 1000 --duration 120 --late-pct 0.05"` (see `--help`).
 
+## Phase 2 quickstart (lakehouse spike)
+
+Also needs Java 17+ for Spark. With SDKMAN, `sdk env install` installs the version pinned in `.sdkmanrc`.
+
+```bash
+make setup        # checks Java, uv sync, prefetches the Spark Kafka jar + DuckDB extensions
+make up           # now also starts Postgres (DuckLake catalog) + Garage (S3, bucket f1-lake)
+make register
+make stream       # Spark: fx.trades -> DuckLake bronze + silver, one transaction per 5 s batch
+make produce      # in a second terminal
+make lake-verify  # bronze = Kafka offsets, silver deduped, late trades landed, Parquet file count
+```
+
+`make reset` deletes the lake together with the Spark checkpoint. They only make sense as a pair.
+
+`.env` is not committed. Phase 2 adds these keys (generate the secrets with `openssl rand -hex 32`, and the key id as `GK` + `openssl rand -hex 12`):
+
+```bash
+POSTGRES_VERSION=17.9-alpine
+GARAGE_VERSION=v2.4.1
+F1_PG_PASSWORD=<secret>
+F1_GARAGE_RPC_SECRET=<64 hex>
+F1_S3_KEY_ID=GK<24 hex>
+F1_S3_SECRET=<64 hex>
+F1_S3_ENDPOINT=localhost:3900       # remove for AWS S3
+F1_S3_REGION=garage
+F1_S3_USE_SSL=false
+F1_S3_URL_STYLE=path
+F1_LAKE_DATA_PATH=s3://f1-lake/
+F1_LAKE_INLINING_ROW_LIMIT=5000
+F1_LAKE_CATALOG="postgres:host=localhost port=15432 dbname=ducklake user=f1 password=${F1_PG_PASSWORD}"
+```
+
 ## Layout
 
 ```
-docker-compose.yml        Redpanda (Kafka API + Schema Registry) + Console + topic init
+docker-compose.yml        Redpanda (Kafka API + Schema Registry) + Console + topic init, Postgres, Garage
+garage.toml               Garage single-node config (secrets come from .env)
 schemas/                  Avro contracts (source of truth): fx_trade, anomaly_episode
-f1_project/               Python (uv) — fx_producer package + tests
+f1_project/               Python (uv) — fx_producer (Phase 1) and lakehouse (Phase 2) packages + tests
 docs/design/              Design docs, one per phase
 docs/adr/                 Architecture Decision Records
 ```
