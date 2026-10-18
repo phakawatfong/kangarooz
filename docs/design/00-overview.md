@@ -54,11 +54,11 @@ before listing any options**, then let them filter the alternatives.
 | C4 | Alerts p95 < 5 s | A streaming path for alerts | Kappa for alerts; micro-batch latency is acceptable | 001 (005) |
 | C5 | Trades > 30 s late must still count in reports | Recompute after the watermark | Lambda for analytics: batch model over raw events | 001 |
 | C6 | Analytics freshness ~60 s | A fresh but approximate view | Speed view; serving by use case | 001 |
-| C7 | No acknowledged trade lost; duplicates possible | At-least-once + idempotent sink | Producer acks=all + idempotence; bronze allows duplicates, silver MERGE on `trade_id` | 001, 003 (006) |
+| C7 | No acknowledged trade lost; duplicates possible | At-least-once + idempotent sink | Producer acks=all + idempotence; batch ledger makes lake writes exactly-once; silver insert-if-absent on `trade_id`, same transaction as bronze | 001, 003 (006) |
 | C8 | Replay for rule backtesting | Durable, replayable log | Redpanda retention = replay window; Kappa replay | 001, 002 |
 | C9 | Money values | Exact decimals, never floats | Avro `decimal(18,8)` (Protobuf/JSON rejected) | 002 |
 | C10 | Schema evolution, compact messages | Enforced schemas with compatibility rules | Avro + Schema Registry, BACKWARD; `currency_pair` as string to avoid the enum trap | 002 |
-| C11 | ~390 msg/s → **~2k rows per 5 s micro-batch** | Small-file risk on a single node | DuckLake data inlining; Spark writes via `foreachBatch` → DuckDB | 003 |
+| C11 | Dev ~500/s → **~2.5k rows per 5 s micro-batch**; production 1–5k/s → 5–25k rows | Small-file risk on a single node, at both rates | DuckLake data inlining at the dev rate; scheduled compaction (`make compact`) at the production rate; Spark writes via `foreachBatch` → DuckDB | 003 |
 | C12 | ~150 GB/month, no retention | Laptop disk is finite | Trigger recorded: move to S3 or add retention | 004 |
 | C13 | Move to AWS without code changes | Same storage API everywhere | S3 API everywhere: Garage → S3 is config only | 004 |
 | C14 | Regulatory: data residency per region | Region-scoped storage, retention controls | **Gap.** Partly covered: object lock / retention → S3 trigger. Residency (per-region buckets) still to design | 004 (009 / Phase 6) |
