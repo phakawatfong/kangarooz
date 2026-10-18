@@ -1,7 +1,5 @@
 # F1 commands. Run from the repo root.
 PY := cd app && uv run --env-file ../.env
-# Spark comes from the pinned pyspark wheel; a machine-wide SPARK_HOME would load another version's jars.
-unexport SPARK_HOME
 
 .PHONY: help setup up down reset topics register produce produce-dry verify stream lake-verify lake-ui test console logs
 
@@ -31,13 +29,13 @@ reset:           ## stop and DELETE all data (Redpanda, lake catalog + files, Sp
 	rm -rf app/.checkpoints
 
 register:        ## register Avro schemas + BACKWARD compatibility
-	$(PY) python -m fx_producer.registry
+	$(PY) python -m fx_producer.register_schemas
 
 produce:         ## run the producer (override: make produce ARGS="--rate 1000 --duration 120")
-	$(PY) python -m fx_producer.cli $(ARGS)
+	$(PY) python -m fx_producer.produce $(ARGS)
 
 produce-dry:     ## producer without Kafka: samples + Avro sizes
-	$(PY) python -m fx_producer.cli --dry-run --duration 5 $(ARGS)
+	$(PY) python -m fx_producer.produce --dry-run --duration 5 $(ARGS)
 
 verify:          ## check size, header, partitions, duplicates, ground truth
 	$(PY) python -m fx_producer.verify

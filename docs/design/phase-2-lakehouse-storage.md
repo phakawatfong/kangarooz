@@ -91,7 +91,7 @@ A replayed Spark batch is a no-op, so each Kafka offset lands exactly once. That
 - Gotcha: delete the matching `.N.crc` file too, or Spark refuses to rewrite the marker.
 
 **Operational notes.**
-- A machine-wide `SPARK_HOME` breaks pyspark ("'JavaPackage' object is not callable"), so the Makefile unexports it.
+- A machine-wide `SPARK_HOME` breaks pyspark ("'JavaPackage' object is not callable"), so `spark_session()` drops it before starting Spark.
 - The Spark JVM outlives a killed Python driver by a few seconds.
 
 ## Exit criteria

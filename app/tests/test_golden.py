@@ -13,9 +13,9 @@ from pathlib import Path
 import pytest
 from confluent_kafka.schema_registry import Schema
 
-from fx_producer import cli
-from fx_producer.adapters.avro_local import schema_text
-from fx_producer.registry import SUBJECTS
+from contract.avro_codec import schema_text
+from fx_producer import produce
+from fx_producer.register_schemas import SCHEMA_FILE_BY_SUBJECT
 
 mock = pytest.importorskip("confluent_kafka.schema_registry._sync.mock_schema_registry_client")
 
@@ -48,7 +48,7 @@ def fake_clock(monkeypatch):
 
     monkeypatch.setattr(time, "monotonic", lambda: now[0])
     monkeypatch.setattr(time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
-    monkeypatch.setattr(cli, "datetime", FakeDatetime)
+    monkeypatch.setattr(produce, "datetime", FakeDatetime)
 
 
 @pytest.fixture
@@ -70,23 +70,25 @@ def stub_kafka(monkeypatch):
             return 0
 
     def registry(conf):
-        sr = mock.MockSchemaRegistryClient({"url": "mock://golden"})
-        for subject, filename in SUBJECTS.items():
-            sr.register_schema(subject, Schema(schema_text(filename), "AVRO"))
-        return sr
+        client = mock.MockSchemaRegistryClient({"url": "mock://golden"})
+        for subject, filename in SCHEMA_FILE_BY_SUBJECT.items():
+            client.register_schema(subject, Schema(schema_text(filename), "AVRO"))
+        return client
 
+    monkeypatch.setenv("F1_BOOTSTRAP", "stub:9092")
+    monkeypatch.setenv("F1_SCHEMA_REGISTRY", "mock://golden")
     monkeypatch.setattr(f"{KAFKA_MODULE}.Producer", StubProducer)
     monkeypatch.setattr(f"{KAFKA_MODULE}.SchemaRegistryClient", registry)
     return sent
 
 
 def test_dry_run_output(fake_clock, capsys):
-    cli.main([*ARGS, "--dry-run"])
+    produce.main([*ARGS, "--dry-run"])
     _check("dry_run.txt", capsys.readouterr().out)
 
 
 def test_kafka_output_and_wire_bytes(fake_clock, stub_kafka, capsys):
-    cli.main(ARGS)
+    produce.main(ARGS)
     digest = hashlib.sha256()
     for record in stub_kafka:
         digest.update(repr(record).encode())
@@ -96,7 +98,7 @@ def test_kafka_output_and_wire_bytes(fake_clock, stub_kafka, capsys):
 
 def test_help(monkeypatch, capsys):
     monkeypatch.setenv("COLUMNS", "80")
-    monkeypatch.setattr(sys, "argv", ["cli.py"])
+    monkeypatch.setattr(sys, "argv", ["produce.py"])
     with pytest.raises(SystemExit):
-        cli.main(["--help"])
+        produce.main(["--help"])
     _check("help.txt", capsys.readouterr().out)

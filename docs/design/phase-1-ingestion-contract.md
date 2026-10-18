@@ -111,9 +111,11 @@ definitions into OpenTofu.**
 | `simulation/simulator.py` | One tick: market move, normal flow, anomalies, chaos |
 | `adapters/kafka_sink.py` | Avro serialization via Schema Registry; key = `trade_id`; `acks=all`, idempotent producer, lz4 |
 | `adapters/dry_run_sink.py` | `--dry-run` console output and Avro sizing |
-| `registry.py` | Registers both schemas explicitly, sets BACKWARD compatibility |
-| `cli.py` | Rate-controlled loop (100 ms ticks), all knobs as flags, `--dry-run` without a broker |
+| `register_schemas.py` | Registers both schemas explicitly, sets BACKWARD compatibility |
+| `produce.py` | Rate-controlled loop (100 ms ticks), all knobs as flags, `--dry-run` without a broker |
 | `verify.py` | Reads back the topic and checks the design assumptions |
+
+Topics, `KafkaConfig` and the Avro codec live in `app/contract/`, shared with every consumer.
 
 **Injected anomalies (defaults)**
 

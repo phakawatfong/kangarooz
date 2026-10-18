@@ -10,8 +10,9 @@ from fastavro.validation import validate
 from pydantic import ValidationError
 
 from fx_producer.simulation.anomalies import AnomalyInjector
-from fx_producer.adapters.avro_local import REGISTRY_HEADER_BYTES, decode, encode, parsed_schema, schema_text
-from fx_producer.config import EPISODE_SCHEMA, TRADE_SCHEMA, SimConfig
+from contract.avro_codec import (EPISODE_SCHEMA, REGISTRY_HEADER_BYTES, TRADE_SCHEMA, decode, encode, parsed_schema,
+                                 schema_text)
+from fx_producer.config import SimConfig
 from fx_producer.simulation.market import MarketSimulator
 from fx_producer.domain import AnomalyEpisode, Trade
 
@@ -19,10 +20,10 @@ NOW = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
 
 
 def _sim(seed=7):
-    cfg = SimConfig(seed=seed)
+    sim_config = SimConfig(seed=seed)
     rng = random.Random(seed)
-    market = MarketSimulator(cfg, rng)
-    return cfg, rng, market
+    market = MarketSimulator(sim_config, rng)
+    return sim_config, rng, market
 
 
 def test_trade_validates_and_round_trips():
@@ -54,12 +55,13 @@ def test_encoded_size_matches_sizing_card():
 
 
 def test_episode_validates():
-    cfg, rng, market = _sim()
-    inj = AnomalyInjector(cfg, market, rng)
-    eps = [inj.price_spike(NOW)[1], inj.fat_finger(NOW)[1], inj.start_volume_burst(NOW), inj.start_account_burst(NOW)]
-    for ep in eps:
-        assert validate(ep.model_dump(), parsed_schema(EPISODE_SCHEMA))
-        assert decode(encode(ep.model_dump(), EPISODE_SCHEMA), EPISODE_SCHEMA)["episode_id"] == ep.episode_id
+    sim_config, rng, market = _sim()
+    injector = AnomalyInjector(sim_config, market, rng)
+    episodes = [injector.price_spike(NOW)[1], injector.fat_finger(NOW)[1], injector.start_volume_burst(NOW),
+                injector.start_account_burst(NOW)]
+    for episode in episodes:
+        assert validate(episode.model_dump(), parsed_schema(EPISODE_SCHEMA))
+        assert decode(encode(episode.model_dump(), EPISODE_SCHEMA), EPISODE_SCHEMA)["episode_id"] == episode.episode_id
 
 
 def test_models_mirror_avro_schemas():
