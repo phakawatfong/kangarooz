@@ -40,7 +40,39 @@ Kubernetes (scaling is argued on paper), a polished frontend.
 | Redpanda retention | 7 days (replay / backtest window), RF=3 | 24 h, RF=1 |
 | Schema | Avro, BACKWARD compatibility via Schema Registry | same |
 
-## 3. Architecture
+## 3. Constraints → decisions (trace)
+
+Design by constraint: every decision should trace back to a constraint or a sizing number,
+not to "I know this tool". **For ADR-005 onwards, write the applicable constraints (step 1)
+before listing any options**, then let them filter the alternatives.
+
+| # | Constraint / number | What it forces | Decision | ADR |
+|---|---|---|---|---|
+| C1 | One 16 GB laptop, Docker Compose, no Kubernetes | Light components, single-node engine | Redpanda (single binary, no JVM); DuckDB; Garage (single container); Spark in local mode, streaming only | 002, 003, 004 |
+| C2 | Open-source or source-available, zero cost | Self-host everything locally | Garage locally instead of S3; MinIO CE out (archived); Redpanda accepted as BSL (say "source-available"); OpenTofu over Terraform | 002, 004, 009 |
+| C3 | One operator | Fewest services to run | Redpanda's built-in Schema Registry + Console; DuckLake's catalog is Postgres (no separate catalog service); Garage over SeaweedFS | 002, 003, 004 |
+| C4 | Alerts p95 < 5 s | A streaming path for alerts | Kappa for alerts; micro-batch latency is acceptable | 001 (005) |
+| C5 | Trades > 30 s late must still count in reports | Recompute after the watermark | Lambda for analytics: batch model over raw events | 001 |
+| C6 | Analytics freshness ~60 s | A fresh but approximate view | Speed view; serving by use case | 001 |
+| C7 | No acknowledged trade lost; duplicates possible | At-least-once + idempotent sink | Producer acks=all + idempotence; bronze allows duplicates, silver MERGE on `trade_id` | 001, 003 (006) |
+| C8 | Replay for rule backtesting | Durable, replayable log | Redpanda retention = replay window; Kappa replay | 001, 002 |
+| C9 | Money values | Exact decimals, never floats | Avro `decimal(18,8)` (Protobuf/JSON rejected) | 002 |
+| C10 | Schema evolution, compact messages | Enforced schemas with compatibility rules | Avro + Schema Registry, BACKWARD; `currency_pair` as string to avoid the enum trap | 002 |
+| C11 | ~390 msg/s → **~2k rows per 5 s micro-batch** | Small-file risk on a single node | DuckLake data inlining; Spark writes via `foreachBatch` → DuckDB | 003 |
+| C12 | ~150 GB/month, no retention | Laptop disk is finite | Trigger recorded: move to S3 or add retention | 004 |
+| C13 | Move to AWS without code changes | Same storage API everywhere | S3 API everywhere: Garage → S3 is config only | 004 |
+| C14 | Regulatory: data residency per region | Region-scoped storage, retention controls | **Gap.** Partly covered: object lock / retention → S3 trigger. Residency (per-region buckets) still to design | 004 (009 / Phase 6) |
+| C15 | Infrastructure as code with OpenTofu | Modules + environments | Pending | (009) |
+
+ADRs in brackets are not written yet.
+
+**Open gaps to close in later ADRs:** C14 data residency; hot currency pairs (ADR-008).
+
+**Interview opening (constraint first):** "One laptop, one operator, open source only, alerts under 5 s,
+and reports that must include trades up to minutes late. Those constraints give me Kappa for alerts,
+Lambda for analytics, and a single-node lakehouse, and I'll show you which constraint drove each component."
+
+## 4. Architecture
 
 Decided in [ADR-001](../adr/ADR-001-overall-architecture.md): **Kappa for alerts, Lambda for analytics.**
 
@@ -66,7 +98,7 @@ flowchart LR
 - **Production note:** trades originate in an OLTP service and reach the log via a transactional outbox (known improvement). The build is log-first, so it has no dual write.
 - **Platform layer:** storage (Garage/S3) → open table format (DuckLake) → query engine (DuckDB).
 
-## 4. Stack
+## 5. Stack
 
 | Layer | Choice | ADR |
 |---|---|---|
@@ -79,7 +111,7 @@ flowchart LR
 | BI | Superset | — |
 | IaC | OpenTofu | ADR-009 |
 
-## 5. Phases
+## 6. Phases
 
 | Phase | Week | Doc | Theme | Key output |
 |---|---|---|---|---|
@@ -90,6 +122,6 @@ flowchart LR
 | 5 | Wk 5 | [phase-5-distribution-failure-iac](phase-5-distribution-failure-iac.md) | Distribution, failure, IaC | Failure walkthrough, OpenTofu |
 | 6 | Wk 6–8 | [phase-6-synthesis-demo](phase-6-synthesis-demo.md) | Cost, security, MCP, synthesis | One-page architecture doc, demo |
 
-## 6. Decision index
+## 7. Decision index
 
 See [`../adr/README.md`](../adr/README.md).
