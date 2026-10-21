@@ -7,3 +7,6 @@ __pycache__/
 .env
 # Spark streaming checkpoints (paired with the lake: make reset wipes both)
 .checkpoints/
+
+# Private notes (interview prep, AI session briefs): never committed
+private/

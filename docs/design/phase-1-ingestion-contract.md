@@ -126,7 +126,7 @@ Topics, `KafkaConfig` and the Avro codec live in `app/contract/`, shared with ev
 | `volume_burst` | PAIR | one pair at 5–10× its flow for 10–30 s | 0.5/min |
 | `account_burst` | USER | one ordinary user at 10–30 trades/s for 10 s | 0.5/min |
 
-**Two kinds of duplicates (worth saying in an interview):** the idempotent producer removes
+**Two kinds of duplicates:** the idempotent producer removes
 duplicates caused by *broker-level* retries; it cannot remove *application-level* duplicates
 (same trade sent twice), which `simulation/chaos.py` injects on purpose. Only the sink's dedupe on
 `trade_id` handles those.
@@ -151,5 +151,4 @@ Acceptable for grading data in a simulator; a real system would use one system o
 ## 9. Open items
 
 - ADR-001 and ADR-002 accepted — see `docs/adr/`.
-- Remaining Week 1: DDIA Ch 1 + Ch 4 reading; 2-minute platform walkthrough mock.
 - Phase 2 consumes `fx.trades` into DuckLake; `etl_loaded_at` is added there.

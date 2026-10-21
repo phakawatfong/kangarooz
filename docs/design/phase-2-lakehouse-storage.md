@@ -1,6 +1,6 @@
 # Phase 2 — Lakehouse Storage (Week 2)
 
-**Status:** spike done (2026-10-18) · mock answers pending · **DDIA:** Ch 3
+**Status:** done (spike 2026-10-18, decisions reviewed 2026-10-18) · **DDIA:** Ch 3
 
 ## Goal
 Land raw trades durably in a lakehouse and be able to defend every storage layer.
@@ -116,8 +116,13 @@ A replayed Spark batch is a no-op, so each Kafka offset lands exactly once. That
 
 All columns `NOT NULL`. DuckLake has no PK/UNIQUE constraints, so uniqueness comes from the write path. Keeping files few: inlining at the dev rate (flush every 60 batches) and `make compact` on a schedule at the production rate.
 
+## Known issues
+- **Credential leak in errors:** a failed DuckDB attach prints the full Postgres DSN, password included, so any log that captures a failed connect leaks it. Fix: keep the password out of `F1_LAKE_CATALOG` (separate secret or `PGPASSWORD`), or redact connect errors.
+- **Unprofiled inlined-write cost:** ~1.6 ms per inlined row is measured end to end but not profiled (assumed per-row inserts into Postgres).
+- **`fx_producer.verify` reads only the first 5,000 messages,** so its partition-spread check is misleading.
+- **Silver anti-join scans all of silver:** `trade_id` is a random UUID, so file statistics can't prune. Planned fix: bound the anti-join to the batch's min–max `event_timestamp` (exact, since a duplicate carries the same `event_timestamp`); compaction should sort by `event_timestamp`. Measure anti-join time vs silver size.
+
 ## Exit criteria
 - [x] ADR-003, ADR-004 written
 - [x] Raw trades table design (columns, partitioning, dedupe) — confirmed by the spike (see Table design)
 - [x] Spike acceptance checks pass
-- [ ] Mock answered: "Why not Iceberg?" / "Why not just Postgres?"

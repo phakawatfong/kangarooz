@@ -20,4 +20,3 @@ OpenTofu `envs/local` (Redpanda topics replacing `init-topics`, Postgres roles) 
 ## Exit criteria
 - [ ] ADR-008, ADR-009 written
 - [ ] Failure-mode table (what breaks, what's lost, recovery, alerting)
-- [ ] Mock answered: "Scale this 100×. What breaks first?"

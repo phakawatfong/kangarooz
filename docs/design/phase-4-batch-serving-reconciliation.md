@@ -11,7 +11,7 @@ Build the Lambda analytics path and grade the detector against ground truth.
 - Precision / recall using the Phase 1 matching rule; how much late data the stream missed.
 - Backtesting a rule change by replaying history (Kappa property).
 
-## Open questions from mock round 1 (2026-10-17)
+## Open questions (design review, 2026-10-17)
 - Batch model and serving views read **silver** (deduplicated), never bronze.
 - Reconciliation measures the speed-vs-batch gap, i.e. how much late data the stream missed. What threshold would trigger widening the watermark?
 
@@ -24,4 +24,3 @@ DuckDB batch job recomputing exact aggregates; reconciliation query; replay-base
 ## Exit criteria
 - [ ] ADR-007 written
 - [ ] Precision/recall reported per anomaly type
-- [ ] Mock answered: "Why run both Lambda and Kappa?"

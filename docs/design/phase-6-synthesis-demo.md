@@ -3,7 +3,7 @@
 **Status:** not started
 
 ## Goal
-Turn the project into an interview artifact.
+Turn the project into a presentable whole: one-page architecture doc, dashboard and demo.
 
 ## Questions to answer
 - Cost: laptop vs AWS demo; what would production cost and why.
@@ -18,4 +18,4 @@ Turn the project into an interview artifact.
 - One-page architecture doc: diagram, ADR links, failure modes, what changes at 100×
 - Superset dashboard (OHLC/VWAP, anomaly timeline, precision/recall)
 - Optional: MCP server; AWS demo via OpenTofu (Fargate or Lightsail), then destroy
-- 2-minute project pitch + full system-design mock round
+- 2-minute project walkthrough

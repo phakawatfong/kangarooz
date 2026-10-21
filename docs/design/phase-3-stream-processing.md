@@ -11,7 +11,7 @@ Turn the trade stream into real-time alerts (Kappa path) within p95 < 5 s.
 - What happens to a trade that is 2 minutes late?
 - Alert event schema: rule, observed value, baseline, threshold, window, scope_key.
 
-## Open questions from mock round 1 (2026-10-17)
+## Open questions (design review, 2026-10-17)
 - **Alert identity:** deterministic `alert_id = hash(rule, scope_key, window_start)`. `trade_id` only identifies single-trade alerts; window alerts (volume/account burst) need the rule + scope + window.
 - **Where duplicates stop:** the notifier keeps a store of sent `alert_id`s and skips repeats (idempotent consumer). Redpanda transactions give exactly-once *inside* the broker, but a page/email is an external side effect. Exactly-once ends at the system boundary.
 - **Late trades in the alert path:** trades past the 30 s watermark are excluded from window statistics (window not reopened). Should single-trade rules (fat-finger, price spike) still evaluate late trades and emit an alert flagged `late`?

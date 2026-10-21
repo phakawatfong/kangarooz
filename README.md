@@ -12,7 +12,7 @@ The point is **architecture judgment**: every component is chosen deliberately a
 | Phase | Week | Scope | Status |
 |---|---|---|---|
 | 1 | Wk 1 | Ingestion contract + synthetic producer | ✅ built · ADR-001 + ADR-002 accepted |
-| 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | 🟡 spike done · mock answers pending |
+| 2 | Wk 2 | Lakehouse storage (DuckLake, Garage, Postgres) | ✅ built · ADR-003 + ADR-004 accepted |
 | 3 | Wk 3 | Stream processing + alerts (Spark, Kappa) | ⬜ |
 | 4 | Wk 4 | Batch layer, serving, reconciliation (Lambda) | ⬜ |
 | 5 | Wk 5 | Partitioning, failure modes, OpenTofu | ⬜ |

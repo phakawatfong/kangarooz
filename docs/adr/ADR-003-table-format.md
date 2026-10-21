@@ -82,10 +82,6 @@ Write path:
 
 The original #3 ("inlining can't keep up at ~2k rows per micro-batch") was met at the production rate by the spike; the answer chosen was compaction, not a format switch, because every alternative needs compaction too.
 
-## Interview line
-
-> "One laptop, one operator, DuckDB as the engine. DuckLake is the format DuckDB writes natively, and because its catalog is a database, bronze, silver and my batch ledger commit in one transaction. At the dev rate inlining keeps files few with no job; at production rate it needs compaction like Iceberg or Delta — I measured 103 files down to 1 in six seconds next to the live stream. Iceberg wins on reach, and I'd switch the day a second engine needs the data."
-
 ## To verify in the Phase 2 spike
 
 - DuckLake's data-inlining row limit vs ~2,000 rows per micro-batch (likely needs raising)

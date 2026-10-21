@@ -68,7 +68,7 @@ ADRs in brackets are not written yet.
 
 **Open gaps to close in later ADRs:** C14 data residency; hot currency pairs (ADR-008).
 
-**Interview opening (constraint first):** "One laptop, one operator, open source only, alerts under 5 s,
+**One-line summary (constraint first):** "One laptop, one operator, open source only, alerts under 5 s,
 and reports that must include trades up to minutes late. Those constraints give me Kappa for alerts,
 Lambda for analytics, and a single-node lakehouse, and I'll show you which constraint drove each component."
 
