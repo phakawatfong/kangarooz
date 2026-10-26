@@ -10,40 +10,13 @@ from __future__ import annotations
 
 import argparse
 import statistics
-import uuid
 from collections import Counter
 
-from confluent_kafka import Consumer
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 
-from contract.kafka import GROUND_TRUTH_TOPIC, TRADES_TOPIC, KafkaConfig
-
-
-def _consume(kafka_config: KafkaConfig, topic: str, max_messages: int, idle_timeout: float = 5.0) -> list:
-    consumer = Consumer(
-        {
-            "bootstrap.servers": kafka_config.bootstrap_servers,
-            "group.id": f"f1-verify-{uuid.uuid4().hex[:8]}",
-            "auto.offset.reset": "earliest",
-            "enable.auto.commit": False,
-        }
-    )
-    consumer.subscribe([topic])
-    messages = []
-    try:
-        while len(messages) < max_messages:
-            message = consumer.poll(idle_timeout)
-            if message is None:
-                break
-            if message.error():
-                print(f"[consumer error] {message.error()}")
-                continue
-            messages.append(message)
-    finally:
-        consumer.close()
-    return messages
+from contract.kafka import GROUND_TRUTH_TOPIC, TRADES_TOPIC, KafkaConfig, consume
 
 
 def main() -> None:
@@ -52,7 +25,7 @@ def main() -> None:
     args = parser.parse_args()
     kafka_config = KafkaConfig.from_env()
 
-    messages = _consume(kafka_config, TRADES_TOPIC, args.max)
+    messages = consume(kafka_config, TRADES_TOPIC, args.max)
     if not messages:
         print(f"no messages in {TRADES_TOPIC}; run the producer first")
         return
@@ -77,7 +50,7 @@ def main() -> None:
     sample = deserializer(values[0], SerializationContext(TRADES_TOPIC, MessageField.VALUE))
     print(f"decoded sample (via registry schema id): {sample}")
 
-    episodes = _consume(kafka_config, GROUND_TRUTH_TOPIC, 10_000, idle_timeout=3.0)
+    episodes = consume(kafka_config, GROUND_TRUTH_TOPIC, 10_000, idle_timeout=3.0)
     types = Counter(deserializer(message.value(), SerializationContext(GROUND_TRUTH_TOPIC, MessageField.VALUE))["anomaly_type"]
                     for message in episodes)
     print(f"== {GROUND_TRUTH_TOPIC}: {len(episodes)} episodes {dict(types)}")

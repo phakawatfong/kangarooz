@@ -6,9 +6,9 @@ Regenerate the expected files only on an intended behaviour change: UPDATE_GOLDE
 import hashlib
 import os
 import sys
-import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from confluent_kafka.schema_registry import Schema
@@ -46,8 +46,10 @@ def fake_clock(monkeypatch):
         def now(cls, tz=None):
             return EPOCH + timedelta(seconds=now[0])
 
-    monkeypatch.setattr(time, "monotonic", lambda: now[0])
-    monkeypatch.setattr(time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
+    # Only produce.py's clock: patching the time module itself lets any background thread (PySpark keeps one that
+    # sleeps every second, even after spark.stop()) advance this clock.
+    monkeypatch.setattr(produce, "time", SimpleNamespace(monotonic=lambda: now[0],
+                                                         sleep=lambda s: now.__setitem__(0, now[0] + s)))
     monkeypatch.setattr(produce, "datetime", FakeDatetime)
 
 

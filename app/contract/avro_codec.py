@@ -13,6 +13,7 @@ from fastavro import parse_schema, schemaless_reader, schemaless_writer
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 TRADE_SCHEMA = "fx_trade.avsc"
 EPISODE_SCHEMA = "anomaly_episode.avsc"
+ALERT_SCHEMA = "fx_alert.avsc"
 
 # Confluent wire format: magic byte 0x00 + 4-byte schema id, then the Avro body.
 REGISTRY_HEADER_BYTES = 5

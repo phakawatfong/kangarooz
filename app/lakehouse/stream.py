@@ -14,38 +14,31 @@ from pathlib import Path
 
 import duckdb
 import pyspark
-from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 from pyspark.sql import DataFrame, SparkSession
 
-from contract.avro_codec import TRADE_SCHEMA, schema_text
-from contract.kafka import TRADES_TOPIC, KafkaConfig, value_subject
+from contract.avro_codec import TRADE_SCHEMA
+from contract.kafka import TRADES_TOPIC, KafkaConfig, registered_schema_id
 from logs import setup_logging
 
 from .config import LakeConfig
 from .lake import connect, create_tables, decode_batch, write_batch
 
 CHECKPOINT = Path(__file__).resolve().parents[1] / ".checkpoints" / "fx_trades"
-KAFKA_PACKAGE = f"org.apache.spark:spark-sql-kafka-0-10_2.13:{pyspark.__version__}"
+SPARK_PACKAGES = ",".join(f"org.apache.spark:{name}_2.13:{pyspark.__version__}"
+                          for name in ("spark-sql-kafka-0-10", "spark-avro"))
 FLUSH_EVERY = 60  # batches (~5 min at the 5 s trigger): inlined rows move from Postgres to Parquet
 
 log = logging.getLogger(__name__)
 
 
-def spark_session() -> SparkSession:
+def spark_session(app_name: str) -> SparkSession:
     os.environ.pop("SPARK_HOME", None)  # use the pinned pyspark's own Spark, not a machine-wide install's jars
-    return (SparkSession.builder.master("local[*]").appName("f1-lake-sink")
-            .config("spark.jars.packages", KAFKA_PACKAGE)
+    return (SparkSession.builder.master("local[*]").appName(app_name)
+            .config("spark.jars.packages", SPARK_PACKAGES)
             .config("spark.sql.session.timeZone", "UTC")
             .config("spark.driver.memory", "2g")
             .config("spark.ui.showConsoleProgress", "false")  # the progress bar overwrites the batch log lines
             .getOrCreate())
-
-
-def trade_schema_id(kafka_config: KafkaConfig) -> int:
-    """The registry id of schemas/fx_trade.avsc; fails if that exact schema was never registered."""
-    registry = SchemaRegistryClient({"url": kafka_config.schema_registry_url})
-    return registry.lookup_schema(value_subject(TRADES_TOPIC), Schema(schema_text(TRADE_SCHEMA), "AVRO"),
-                                  normalize_schemas=True).schema_id
 
 
 def check_checkpoint_matches_lake(db: duckdb.DuckDBPyConnection) -> None:
@@ -66,7 +59,7 @@ def main() -> None:
     setup_logging()
     kafka_config = KafkaConfig.from_env()
     log.debug("kafka: %s", kafka_config)
-    schema_id = trade_schema_id(kafka_config)
+    schema_id = registered_schema_id(kafka_config, TRADES_TOPIC, TRADE_SCHEMA)
     db = connect(LakeConfig.from_env())
     create_tables(db)
     check_checkpoint_matches_lake(db)
@@ -90,7 +83,7 @@ def main() -> None:
               flush=True)
 
     print(f"streaming {TRADES_TOPIC} (schema id {schema_id}) -> DuckLake; Ctrl+C to stop", flush=True)
-    query = (spark_session().readStream.format("kafka")
+    query = (spark_session("f1-lake-sink").readStream.format("kafka")
              .option("kafka.bootstrap.servers", kafka_config.bootstrap_servers)
              .option("subscribe", TRADES_TOPIC)
              .option("startingOffsets", "earliest")

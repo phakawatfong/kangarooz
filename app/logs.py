@@ -4,7 +4,7 @@ import logging
 import os
 
 # "__main__" is the module started with `python -m`, e.g. lakehouse.stream.
-PROJECT_LOGGERS = ("__main__", "contract", "fx_producer", "lakehouse")
+PROJECT_LOGGERS = ("__main__", "contract", "detector", "fx_producer", "lakehouse")
 
 
 def setup_logging() -> None:

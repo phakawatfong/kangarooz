@@ -7,12 +7,13 @@ from __future__ import annotations
 
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 
-from contract.avro_codec import EPISODE_SCHEMA, TRADE_SCHEMA, schema_text
-from contract.kafka import GROUND_TRUTH_TOPIC, TRADES_TOPIC, KafkaConfig, value_subject
+from contract.avro_codec import ALERT_SCHEMA, EPISODE_SCHEMA, TRADE_SCHEMA, schema_text
+from contract.kafka import ALERTS_TOPIC, GROUND_TRUTH_TOPIC, TRADES_TOPIC, KafkaConfig, value_subject
 
 SCHEMA_FILE_BY_SUBJECT = {
     value_subject(TRADES_TOPIC): TRADE_SCHEMA,
     value_subject(GROUND_TRUTH_TOPIC): EPISODE_SCHEMA,
+    value_subject(ALERTS_TOPIC): ALERT_SCHEMA,
 }
 
 
