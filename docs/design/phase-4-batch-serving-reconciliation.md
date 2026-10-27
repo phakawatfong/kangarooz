@@ -10,6 +10,7 @@ Build the Lambda analytics path and grade the detector against ground truth.
 - Fired alerts vs batch labels vs ground truth — what each one means.
 - Precision / recall using the Phase 1 matching rule; how much late data the stream missed.
 - Backtesting a rule change by replaying history (Kappa property).
+- Moving baselines for the rules deferred from Phase 3 (`price_spike`, `volume_burst`, and per-user `account_burst` to fix the whale false positives): keep them in streaming state, or compute them from silver and join them into the stream? The second couples the alert path to the batch path. `volume_burst` is also the hot-key example for ADR-008 (EUR/USD carries most trades).
 
 ## Open questions (design review, 2026-10-17)
 - Batch model and serving views read **silver** (deduplicated), never bronze.

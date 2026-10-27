@@ -47,6 +47,13 @@ def test_account_burst_fires_at_50_trades_per_window(spark):
     assert window == (NOW, NOW + timedelta(seconds=10))
 
 
+
+def test_account_burst_ignores_trades_that_arrived_late(spark):
+    on_time = _trades(spark, [_trade(i, user="U1") for i in range(49)])
+    late = _trades(spark, [_trade(49, user="U1")], arrived_at=NOW + timedelta(seconds=31))
+    assert account_burst(on_time.union(late), rule_version=1).collect() == []
+
+
 def test_alert_id_is_stable_on_replay_and_changes_with_rule_version(spark):
     trades = _trades(spark, [_trade(1, amount="200000")])
     ids = [fat_finger(trades, version).collect()[0].alert_id for version in (1, 1, 2)]

@@ -35,6 +35,11 @@ def decode_trades(kafka: DataFrame, schema_id: int) -> DataFrame:
     return kafka.select(trade.alias("trade"), F.col("timestamp").alias("arrived_at")).select("trade.*", "arrived_at")
 
 
+def _arrived_late() -> Column:
+    """Judged per record against its own arrival time, so a replay judges every trade exactly as live did."""
+    return (F.unix_millis("arrived_at") - F.unix_millis("event_timestamp")) > LATE_AFTER_MS
+
+
 def _alerts(df: DataFrame, *, anomaly_type: str, scope: str, scope_key: Column, window_start: Column,
             window_end: Column, rule_version: int, is_late: Column, observed_value: Column,
             baseline: float | None, threshold: float, trigger_trade_id: Column | None) -> DataFrame:
@@ -59,12 +64,10 @@ def _alerts(df: DataFrame, *, anomaly_type: str, scope: str, scope_key: Column, 
 def fat_finger(trades: DataFrame, rule_version: int) -> DataFrame:
     """One trade far above the typical size. Stateless, so late trades are still evaluated (and flagged)."""
     threshold = FAT_FINGER_TYPICAL_AMOUNT * FAT_FINGER_MULTIPLE
-    # Arrival vs event time, not vs current_timestamp(): a replay from earliest must flag the same trades.
-    late = (F.unix_millis("arrived_at") - F.unix_millis("event_timestamp")) > LATE_AFTER_MS
     return _alerts(trades.where(F.col("base_amount") > threshold),
                    anomaly_type="fat_finger", scope="TRADE", scope_key=F.col("trade_id"),
                    window_start=F.col("event_timestamp"), window_end=F.col("event_timestamp"),
-                   rule_version=rule_version, is_late=late, observed_value=F.col("base_amount"),
+                   rule_version=rule_version, is_late=_arrived_late(), observed_value=F.col("base_amount"),
                    baseline=FAT_FINGER_TYPICAL_AMOUNT, threshold=threshold, trigger_trade_id=F.col("trade_id"))
 
 
@@ -73,8 +76,12 @@ def account_burst(trades: DataFrame, rule_version: int, slide: str | None = None
 
     Run in update mode: a window is emitted at the first trigger where it crosses the threshold, then again each
     time its count grows. Every re-emission carries the same alert_id.
+
+    Late trades are dropped per record before counting. The watermark alone drops them only between micro-batches,
+    so a replay (one large batch) would count trades the live run dropped and fire extra alerts. The watermark is
+    kept to evict old windows from state.
     """
-    counts = (trades.withWatermark("event_timestamp", WATERMARK)
+    counts = (trades.where(~_arrived_late()).withWatermark("event_timestamp", WATERMARK)
               .groupBy(F.window("event_timestamp", ACCOUNT_BURST_WINDOW, slide), "user_id").count()
               .where(F.col("count") >= ACCOUNT_BURST_MIN_TRADES))
     return _alerts(counts, anomaly_type="account_burst", scope="USER", scope_key=F.col("user_id"),
