@@ -22,7 +22,7 @@ from .config import LakeConfig
 from .lake import connect
 
 # Files at least this big are never rewritten, so a run only touches small files (bounded write amplification).
-TARGET_FILE_BYTES = 128 * 1024 * 1024 # 1GB
+TARGET_FILE_BYTES = 128 * 1024 * 1024 # 128 MB
 TABLES = ("bronze_fx_trade", "silver_fx_trade", "ingest_batch")
 
 log = logging.getLogger(__name__)
