@@ -78,20 +78,43 @@ Decided in [ADR-001](../adr/ADR-001-overall-architecture.md): **Kappa for alerts
 
 ```mermaid
 flowchart LR
-  APP["trade-app<br>(simulator in the build)"] -->|event_topic = fx.trades| MQ["Redpanda<br>+ Schema Registry"]
-  APP -.->|"production design:<br>DB + transactional outbox"| DB[("DB")]
-  MQ --> DET["detector-worker<br>(Spark, windows · watermarks)"]
-  DET -->|anomaly_topic = fx.alerts| MQ
-  MQ --> NOT["notifier-worker"] --> AL["alert notification"]
-  MQ -->|sink: dedupe on trade_id| RAW["raw_event + anomaly_event<br>(DuckLake)"]
-  RAW --> BATCH["batch scheduled model<br>(exact, incl. late trades)"]
-  RAW --> SPEED["speed view<br>(incremental micro-batch)"]
-  BATCH --> SB["serving batch"] --> BI["BI reports / analysts"]
-  SPEED --> SS["serving speed"] --> RT["freshness dashboards / real-time app"]
-  MQ -.->|"replay = backtest"| DET
+  APP["fx_producer<br>(simulator + labelled injected anomalies)"] -->|"fx.trades (key = trade_id)"| MQ["Redpanda + Schema Registry<br>Avro · BACKWARD"]
+  APP -->|"fx.trades.ground_truth"| MQ
+  APP -.->|"production design:<br>DB + transactional outbox"| DB[("OLTP DB")]
+
+  subgraph KAPPA["Alert path (Kappa)"]
+    DET["detector (Spark, own process)<br>fat_finger: stateless, append<br>account_burst: 10 s tumbling, 30 s watermark, update"]
+    NOT["notifier<br>dedupe on alert_id · 60 s cooldown"]
+    GRADE["grader<br>precision · recall · p95 latency"]
+  end
+  MQ -->|fx.trades| DET
+  DET -->|"fx.alerts (key = alert_id)"| MQ
+  MQ -.->|"replay = backtest (new rule_version)"| DET
+  MQ -.->|fx.alerts| NOT --> AL["alert notification"]
+  MQ -->|"fx.alerts + ground truth + fx.trades"| GRADE
+
+  subgraph LAMBDA["Analytics path (Lambda)"]
+    SINK["lake sink (Spark foreachBatch → DuckDB)<br>dedupe on trade_id"]
+    LAKE[("DuckLake: Postgres catalog + Garage files<br>bronze · silver · ingest_batch<br>+ scheduled compaction")]
+    ANOM[("anomaly_event")]
+    BATCH["batch scheduled model<br>(exact, incl. late trades)"]
+    SPEED["speed view<br>(incremental micro-batch)"]
+  end
+  MQ -->|fx.trades| SINK --> LAKE
+  MQ -.->|fx.alerts| ANOM
+  LAKE -.-> BATCH
+  LAKE -.-> SPEED
+  ANOM -.-> BATCH
+  BATCH -.-> SB["serving batch"] -.-> BI["BI reports / analysts"]
+  SPEED -.-> SS["serving speed"] -.-> RT["freshness dashboards / real-time app"]
+
+  classDef planned stroke-dasharray: 5 5
+  class DB,NOT,AL,ANOM,BATCH,SPEED,SB,BI,SS,RT planned
 ```
 
-- **Alert path (Kappa):** `detector-worker` reads `event_topic`, writes `anomaly_topic`; `notifier-worker` sends alerts. Rule changes are backtested by replaying the log.
+Solid boxes and arrows are built (Phases 1–3). Dashed ones are designed but not built yet.
+
+- **Alert path (Kappa):** the `detector` reads `fx.trades` and writes `fx.alerts`, keyed by a deterministic `alert_id`. The `notifier` is designed but not built; it would dedupe on `alert_id` and apply a cooldown. Rule changes are backtested by replaying the log with a new `rule_version`. The `grader` scores alerts against the ground-truth topic.
 - **Analytics path (Lambda):** raw trades and fired alerts land as an immutable record; a scheduled batch model recomputes exact results (late trades included); a speed view gives fresh, approximate results.
 - **Serving by use case:** reports read batch (exact, stale until the next run); freshness dashboards and the real-time app read speed (fresh, approximate).
 - **Deciding axis:** timeliness (alerts) vs completeness (reports).
