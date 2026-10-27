@@ -36,8 +36,8 @@ Derived from how the simulator injects each anomaly. Every threshold is a starti
 | Rule | In plain words | Scope / key | State | Initial window and threshold |
 |---|---|---|---|---|
 | `fat_finger` | A typo in the amount: one trade far bigger than normal (5,000 typed as 500,000) | TRADE / `trade_id` | Baseline amount per pair | `base_amount` > 20× the pair's rolling typical amount (injected at 50–200×) |
-| `price_spike` | A trade at a wrong price: far from the market while the market itself didn't move | TRADE / `trade_id` | Rolling mid / volatility per pair | Rate deviates from the pair's rolling mid by more than a z-score or % threshold (injected at 1–3%) |
-| `volume_burst` | A currency pair suddenly gets very busy: each trade is normal, only the total is odd | PAIR / `currency_pair` | Count per pair vs baseline | 10 s tumbling window; count ≥ 3× the pair's rolling baseline (injected at 5–10× for 10–30 s) |
+| `price_spike` (deferred) | A trade at a wrong price: far from the market while the market itself didn't move | TRADE / `trade_id` | Rolling mid / volatility per pair | Rate deviates from the pair's rolling mid by more than a z-score or % threshold (injected at 1–3%) |
+| `volume_burst` (deferred) | A currency pair suddenly gets very busy: each trade is normal, only the total is odd | PAIR / `currency_pair` | Count per pair vs baseline | 10 s tumbling window; count ≥ 3× the pair's rolling baseline (injected at 5–10× for 10–30 s) |
 | `account_burst` | One user suddenly trades very fast: each trade is normal, only the speed is odd | USER / `user_id` | Count per user | 10 s tumbling window; ≥ 50 trades (injected at 10–30 trades/s for 10 s). Check against Zipf "whale" users for false positives |
 
 The first two judge one trade at a time. The last two judge a group of trades in a window, so only they need a watermark, and only they can miss late trades.
@@ -192,7 +192,7 @@ Record p95 for the default trigger and for 1 s, to know what the SLA costs in CP
   - [x] Kill and restart the job mid-run → no lost alerts; any duplicates carry the same `alert_id`
 
 ### Deliberately not built (decisions, not gaps)
-- `price_spike` and `volume_burst`: same patterns as `fat_finger` and `account_burst`, so no new design question
+- **Deferred to Phase 4:** `price_spike` and `volume_burst`. The patterns match the built rules (one trade; a count per window), but both compare against a moving baseline per pair (the mid price; the normal trade rate). Where that baseline lives, in streaming state or computed from silver and fed to the stream, is a batch-layer question. The simulator still injects both, and the grader skips them
 - The notifier service: the cooldown stays a design (see findings above), or a stub at most
 - The `anomaly_event` table in DuckLake
 - Rolling baselines in streaming state: fixed thresholds only
