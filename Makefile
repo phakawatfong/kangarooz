@@ -1,7 +1,7 @@
 # F1 commands. Run from the repo root.
 PY := cd app && uv run --env-file ../.env
 
-.PHONY: help setup up down reset topics register produce produce-dry verify stream lake-verify lake-ui compact test console logs
+.PHONY: help setup up down reset topics register produce produce-dry verify stream detect grade lake-verify lake-ui compact test console logs
 
 help:            ## list commands
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -42,6 +42,12 @@ verify:          ## check size, header, partitions, duplicates, ground truth
 
 stream:          ## Spark sink: fx.trades -> DuckLake bronze + silver (Ctrl+C to stop)
 	$(PY) python -m lakehouse.stream
+
+detect:          ## Spark detector: fx.trades -> rules -> fx.alerts (override: make detect ARGS="--rule-version 2 --slide '2 seconds'")
+	$(PY) python -m detector.job $(ARGS)
+
+grade:           ## precision/recall + p95 latency of fx.alerts vs ground truth (override: make grade ARGS="--rule-version 2")
+	$(PY) python -m detector.grade $(ARGS)
 
 lake-verify:     ## check the lake against Kafka: counts, dedupe, late events, small files
 	$(PY) python -m lakehouse.verify

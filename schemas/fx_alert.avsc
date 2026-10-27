@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "FxAlert",
+  "namespace": "f1.fx",
+  "doc": "One alert fired by the stream detector. Mirrors AnomalyEpisode so grading compares like with like. The same alert_id can appear several times (update-mode re-emissions, at-least-once replays); consumers dedupe on it.",
+  "fields": [
+    {"name": "alert_id", "type": "string", "doc": "sha256(anomaly_type|scope_key|window_start millis|rule_version): a replay produces the same id. Also the Kafka key."},
+    {"name": "anomaly_type", "type": "string", "doc": "price_spike | fat_finger | volume_burst | account_burst. String, not enum (enum trap, ADR-002)."},
+    {"name": "scope", "type": {"type": "enum", "name": "Scope", "symbols": ["TRADE", "USER", "PAIR"]}, "doc": "Same symbols as AnomalyEpisode.scope."},
+    {"name": "scope_key", "type": "string", "doc": "trade_id, user_id or currency_pair depending on scope."},
+    {"name": "window_start", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "Event-time window; equals the trade's event_timestamp for single-trade rules."},
+    {"name": "window_end", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "detected_at", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "Spark current_timestamp(): the START of the micro-batch, so it reads earlier than the alert's Kafka timestamp."},
+    {"name": "rule_version", "type": "int", "doc": "Bumped when a rule's logic or threshold changes; part of alert_id."},
+    {"name": "is_late", "type": "boolean", "doc": "Trade arrived more than 30 s after its event_timestamp (single-trade rules only)."},
+    {"name": "observed_value", "type": "double", "doc": "What the rule measured: the trade's base_amount, or the window's trade count."},
+    {"name": "baseline", "type": ["null", "double"], "default": null, "doc": "What normal looks like, if the rule has one. Null for fixed-threshold window rules."},
+    {"name": "threshold", "type": "double", "doc": "observed_value crossed this."},
+    {"name": "trigger_trade_id", "type": ["null", "string"], "default": null, "doc": "The trade that fired a single-trade rule."}
+  ]
+}

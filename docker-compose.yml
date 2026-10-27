@@ -57,6 +57,8 @@ services:
         rpk topic create fx.trades $$B -p 6 -r 1 -c retention.ms=86400000 -c compression.type=producer || true
         # Ground truth is tiny; keep it a week so grading can look back.
         rpk topic create fx.trades.ground_truth $$B -p 1 -r 1 -c retention.ms=604800000 || true
+        # Alerts: key = alert_id spreads them over 3 partitions; a week, like the ground truth they're graded against.
+        rpk topic create fx.alerts $$B -p 3 -r 1 -c retention.ms=604800000 || true
         rpk topic list $$B
     restart: "no"
 
