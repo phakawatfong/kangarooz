@@ -80,11 +80,13 @@ Decided in [ADR-001](../adr/ADR-001-overall-architecture.md): **Kappa for alerts
 flowchart LR
   APP["fx_producer<br>(simulator + labelled injected anomalies)"] -->|"fx.trades (key = trade_id)"| MQ["Redpanda + Schema Registry<br>Avro · BACKWARD"]
   APP -->|"fx.trades.ground_truth"| MQ
-  APP -.->|"production design:<br>DB + transactional outbox"| DB[("OLTP DB")]
+  APP -.->|"production only, not in this build:<br>trade service DB + transactional outbox"| DB[("OLTP DB")]
 
   subgraph KAPPA["Alert path (Kappa)"]
     DET["detector (Spark, own process)<br>fat_finger: stateless, append<br>account_burst: 10 s tumbling, 30 s watermark, update"]
     NOT["notifier<br>dedupe on alert_id · 60 s cooldown"]
+  end
+  subgraph EVAL["Rule evaluation (offline, not runtime)"]
     GRADE["grader<br>precision · recall · p95 latency"]
   end
   MQ -->|fx.trades| DET
@@ -114,7 +116,8 @@ flowchart LR
 
 Solid boxes and arrows are built (Phases 1–3). Dashed ones are designed but not built yet.
 
-- **Alert path (Kappa):** the `detector` reads `fx.trades` and writes `fx.alerts`, keyed by a deterministic `alert_id`. The `notifier` is designed but not built; it would dedupe on `alert_id` and apply a cooldown. Rule changes are backtested by replaying the log with a new `rule_version`. The `grader` scores alerts against the ground-truth topic.
+- **Alert path (Kappa):** the `detector` reads `fx.trades` and writes `fx.alerts`, keyed by a deterministic `alert_id`. The `notifier` is designed but not built; it would dedupe on `alert_id` and apply a cooldown. Rule changes are backtested by replaying the log with a new `rule_version`.
+- **Rule evaluation (offline):** the `grader` scores the rules' alerts against the simulator's ground-truth labels (precision, recall, p95 latency). It is a measuring tool, not part of the alert path.
 - **Analytics path (Lambda):** raw trades and fired alerts land as an immutable record; a scheduled batch model recomputes exact results (late trades included); a speed view gives fresh, approximate results.
 - **Serving by use case:** reports read batch (exact, stale until the next run); freshness dashboards and the real-time app read speed (fresh, approximate).
 - **Deciding axis:** timeliness (alerts) vs completeness (reports).
