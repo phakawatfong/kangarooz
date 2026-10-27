@@ -11,7 +11,7 @@ One file per decision, written with the 5-step template below. The magic is in s
 | [003](ADR-003-table-format.md) | Table format: DuckLake (Postgres catalog) vs Iceberg vs Delta | 2 | Accepted |
 | [004](ADR-004-object-storage.md) | Object storage: Garage locally → S3 on AWS | 2 | Accepted |
 | [005](ADR-005-stream-engine.md) | Stream engine: Spark Structured Streaming vs Flink | 3 | Accepted |
-| 006 | Delivery guarantee: at-least-once + idempotent sink | 3 | — |
+| [006](ADR-006-delivery-guarantee.md) | Delivery guarantee: at-least-once + dedupe on `alert_id` | 3 | Proposed |
 | 007 | Lambda drift + reconciliation | 4 | — |
 | 008 | Partitioning, keys, hot pairs | 5 | — |
 | 009 | IaC scope + environments | 5 | — |
