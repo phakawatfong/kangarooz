@@ -112,7 +112,7 @@ def main() -> None:
         if alert["anomaly_type"] == "fat_finger":
             return arrival_by_trade.get(alert["trigger_trade_id"])
         start, end = (int(alert[k].timestamp() * 1000) for k in ("window_start", "window_end"))
-        # ponytail: approximates Spark's watermark (max event time - 30 s) with each trade's own arrival lag.
+        # Same per-record late rule as the detector.
         counted = sorted(arrived for event, arrived in trades_by_user[alert["scope_key"]]
                          if start <= event < end and arrived - event <= LATE_AFTER_MS)
         return counted[ACCOUNT_BURST_MIN_TRADES - 1] if len(counted) >= ACCOUNT_BURST_MIN_TRADES else None

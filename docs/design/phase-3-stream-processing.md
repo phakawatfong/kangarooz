@@ -1,6 +1,6 @@
 # Phase 3 — Stream Processing & Alerts (Week 3)
 
-**Status:** spike run (Q0–Q2 answered, Q3 partly: replay determinism open) · ADR-006 next · **DDIA:** Ch 11
+**Status:** spike done (Q0–Q3 answered) · ADR-006 next · **DDIA:** Ch 11
 
 ## Goal
 Turn the trade stream into real-time alerts (Kappa path) within p95 < 5 s.
@@ -33,12 +33,14 @@ Designed from its three consumers: the **notifier** (skip duplicates, tell a hum
 
 Derived from how the simulator injects each anomaly. Every threshold is a starting point, to be tuned against precision/recall.
 
-| Rule | Scope / key | State | Initial window and threshold |
-|---|---|---|---|
-| `fat_finger` | TRADE / `trade_id` | Baseline amount per pair | `base_amount` > 20× the pair's rolling typical amount (injected at 50–200×) |
-| `price_spike` | TRADE / `trade_id` | Rolling mid / volatility per pair | Rate deviates from the pair's rolling mid by more than a z-score or % threshold (injected at 1–3%) |
-| `volume_burst` | PAIR / `currency_pair` | Count per pair vs baseline | 10 s tumbling window; count ≥ 3× the pair's rolling baseline (injected at 5–10× for 10–30 s) |
-| `account_burst` | USER / `user_id` | Count per user | 10 s tumbling window; ≥ 50 trades (injected at 10–30 trades/s for 10 s). Check against Zipf "whale" users for false positives |
+| Rule | In plain words | Scope / key | State | Initial window and threshold |
+|---|---|---|---|---|
+| `fat_finger` | A typo in the amount: one trade far bigger than normal (5,000 typed as 500,000) | TRADE / `trade_id` | Baseline amount per pair | `base_amount` > 20× the pair's rolling typical amount (injected at 50–200×) |
+| `price_spike` (deferred) | A trade at a wrong price: far from the market while the market itself didn't move | TRADE / `trade_id` | Rolling mid / volatility per pair | Rate deviates from the pair's rolling mid by more than a z-score or % threshold (injected at 1–3%) |
+| `volume_burst` (deferred) | A currency pair suddenly gets very busy: each trade is normal, only the total is odd | PAIR / `currency_pair` | Count per pair vs baseline | 10 s tumbling window; count ≥ 3× the pair's rolling baseline (injected at 5–10× for 10–30 s) |
+| `account_burst` | One user suddenly trades very fast: each trade is normal, only the speed is odd | USER / `user_id` | Count per user | 10 s tumbling window; ≥ 50 trades (injected at 10–30 trades/s for 10 s). Check against Zipf "whale" users for false positives |
+
+The first two judge one trade at a time. The last two judge a group of trades in a window, so only they need a watermark, and only they can miss late trades.
 
 **Window type: tumbling first** (decided 2026-10-26). Each trade lands in one window, so one alert per window per key, and 5× less state than a 10 s window sliding every 2 s. Known risk, the **boundary problem**: a burst that straddles a window boundary is split, and each half may miss the threshold. With the injected patterns the loss should be small (an account burst at 10 trades/s splits at worst 50/50, right at the threshold; volume bursts over 20 s always cover a full window), but it must be measured: run the same data with tumbling and with sliding (10 s / 2 s) and compare recall, alert count and state size. Switch to sliding if the recall loss matters. Session windows (one window per burst, closed after an inactivity gap) are a third option.
 
@@ -51,12 +53,12 @@ Option to evaluate: compute baselines in DuckDB from silver every few minutes an
 
 ## Open questions (design review, 2026-10-17)
 - **Where duplicates stop:** the notifier keeps a store of sent `alert_id`s and skips repeats (idempotent consumer). Redpanda transactions give exactly-once *inside* the broker, but a page/email is an external side effect. Exactly-once ends at the system boundary.
-- **Late trades in the alert path:** trades past the 30 s watermark are excluded from window statistics (window not reopened). Single-trade rules can still evaluate late trades and emit an alert with `is_late = true`.
+- **Late trades in the alert path:** trades that arrived more than 30 s after their event time are excluded from window statistics (window not reopened). Decided per record, not by the watermark; see Results (Q3). Single-trade rules can still evaluate late trades and emit an alert with `is_late = true`.
 - **Crash before offset commit:** the batch is reprocessed (at-least-once). Verify that the deterministic `alert_id` + notifier dedupe makes this harmless.
 
 ## Decisions (ADRs)
 - [ADR-005](../adr/ADR-005-stream-engine.md) Stream engine: Spark Structured Streaming — Accepted
-- ADR-006 Delivery guarantee: at-least-once + idempotent sink (alerts)
+- [ADR-006](../adr/ADR-006-delivery-guarantee.md) Delivery guarantee: at-least-once + dedupe on `alert_id` — Proposed
 
 ## Spike design decisions (design session, 2026-10-27)
 
@@ -185,12 +187,12 @@ Record p95 for the default trigger and for 1 s, to know what the SLA costs in CP
 ### Q3. Does a deterministic `alert_id` make replays and crashes harmless? (ADR-006)
 - **Build:** no new code beyond Q0–Q1; run the experiments.
 - **Check:**
-  - [ ] Replay from the earliest offset with the same `rule_version` → identical set of `alert_id`s. **Partly:** `fat_finger` is identical; `account_burst` is a superset (+9 ids). See Results; open decision
+  - [x] Replay from the earliest offset with the same `rule_version` → identical set of `alert_id`s. First run: `account_burst` was a superset (+9 ids). Fixed with a per-record late filter; rerun identical (see Results)
   - [x] Bumped `rule_version` → new `alert_id`s, no collisions with the old run
   - [x] Kill and restart the job mid-run → no lost alerts; any duplicates carry the same `alert_id`
 
 ### Deliberately not built (decisions, not gaps)
-- `price_spike` and `volume_burst`: same patterns as `fat_finger` and `account_burst`, so no new design question
+- **Deferred to Phase 4:** `price_spike` and `volume_burst`. The patterns match the built rules (one trade; a count per window), but both compare against a moving baseline per pair (the mid price; the normal trade rate). Where that baseline lives, in streaming state or computed from silver and fed to the stream, is a batch-layer question. The simulator still injects both, and the grader skips them
 - The notifier service: the cooldown stays a design (see findings above), or a stub at most
 - The `anomaly_event` table in DuckLake
 - Rolling baselines in streaming state: fixed thresholds only
@@ -247,13 +249,17 @@ Surprises and measured numbers (latency, precision/recall, state size, threshold
   - **Cause (verified):** all 9 new windows sit at 50–51 trades and contain 1–3 trades that arrived > 30 s late. The watermark advances only *between* micro-batches. Live, those late trades were dropped (count 48–49, no alert). The replay read the whole backlog as one batch (357k rows), where the watermark dropped nothing.
   - **What this means:** a deterministic `alert_id` makes the same window produce the same id, but **whether a window fires depends on micro-batch boundaries** whenever late data sits near the threshold.
 
-**Open decision (for ADR-006):** make window rules replay-deterministic?
+**Decision (for ADR-006):** make window rules replay-deterministic?
 
-| | Accept it | Drop late trades per record | Cap replay batch size |
+| | Accept it | **Drop late trades per record** ✅ | Cap replay batch size |
 |---|---|---|---|
 | How | Document: a replay can add alerts for near-threshold windows with late trades | Before `groupBy`, filter trades whose arrival − `event_timestamp` > 30 s (the same rule as `is_late`); the watermark still evicts state | `maxOffsetsPerTrigger` on replay |
 | Deterministic | No | **Yes**: per-record, independent of batching | No: only closer to live |
 | Cost | Backtests can disagree with live | Lateness is judged against arrival time, not the watermark; one line of code | Slower replays, still not exact |
+
+- **Why:** a backtest is only useful if it reproduces live. With the watermark alone, which trades count depends on batch boundaries, so detector downtime, a restart or a replay all change the answer. Judging each trade by its own arrival lag gives the same answer every time. The watermark stays, only to evict old windows from state.
+- **Not freshness vs completeness:** dropping trades > 30 s late from the stream was already decided (the watermark did it). This choice only makes the drop deterministic. Completeness comes from the Lambda side: the batch model recounts with late trades included (C5), and reconciling it against `fx.alerts` (Phase 4) finds the bursts the stream missed.
+- **Rerun (rule_version 3, fresh 6-minute run, 2026-10-28):** live then replay from earliest. The replay read all 235,085 trades in one batch, the case that failed before. `fat_finger` 97 = 97 ids, `account_burst` 650 = 650 ids, 0 only-live, 0 only-replay. Recall unchanged (fat_finger 41/44, account_burst 28/28); p95 latency 896 ms / 1,659 ms.
 
 **Smaller surprises:**
 - `collect()` returns naive datetimes in the machine's local zone, whatever the Spark session time zone is.
